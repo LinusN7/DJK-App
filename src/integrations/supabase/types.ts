@@ -57,6 +57,7 @@ export type Database = {
           id: string
           location: string
           opponent: string
+          team_id: string
         }
         Insert: {
           created_at?: string | null
@@ -65,6 +66,7 @@ export type Database = {
           id?: string
           location: string
           opponent: string
+          team_id: string
         }
         Update: {
           created_at?: string | null
@@ -73,14 +75,24 @@ export type Database = {
           id?: string
           location?: string
           opponent?: string
+          team_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "games_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       locker_duties: {
         Row: {
           assigned_at: string | null
           assigned_by: string
           id: string
+          team_id: string
           user_id: string
           week_end: string
           week_start: string
@@ -89,6 +101,7 @@ export type Database = {
           assigned_at?: string | null
           assigned_by: string
           id?: string
+          team_id: string
           user_id: string
           week_end: string
           week_start: string
@@ -97,11 +110,20 @@ export type Database = {
           assigned_at?: string | null
           assigned_by?: string
           id?: string
+          team_id?: string
           user_id?: string
           week_end?: string
           week_start?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "locker_duties_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       passengers: {
         Row: {
@@ -138,24 +160,59 @@ export type Database = {
           full_name: string
           id: string
           jersey_number: number | null
+          locker_duty_count: number
+          team_id: string
           updated_at: string | null
           user_id: string
+          wash_count: number
         }
         Insert: {
           created_at?: string | null
           full_name: string
           id?: string
           jersey_number?: number | null
+          locker_duty_count?: number
+          team_id: string
           updated_at?: string | null
           user_id: string
+          wash_count?: number
         }
         Update: {
           created_at?: string | null
           full_name?: string
           id?: string
           jersey_number?: number | null
+          locker_duty_count?: number
+          team_id?: string
           updated_at?: string | null
           user_id?: string
+          wash_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
         }
         Relationships: []
       }
@@ -186,6 +243,7 @@ export type Database = {
           assigned_by: string
           game_day: string
           id: string
+          team_id: string
           user_id: string
         }
         Insert: {
@@ -193,6 +251,7 @@ export type Database = {
           assigned_by: string
           game_day: string
           id?: string
+          team_id: string
           user_id: string
         }
         Update: {
@@ -200,9 +259,18 @@ export type Database = {
           assigned_by?: string
           game_day?: string
           id?: string
+          team_id?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "wash_duties_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

@@ -5,12 +5,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 const WashList = () => {
   const { user, isAdmin } = useAuth();
   const [newGameDay, setNewGameDay] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
 
   const { data: washDuties, refetch } = useQuery({
     queryKey: ['wash-duties'],
@@ -37,6 +39,20 @@ const WashList = () => {
     },
   });
 
+  const { data: allPlayers } = useQuery({
+    queryKey: ['all-players'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .order('full_name');
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: isAdmin,
+  });
+
   const gameDays = [...new Set(washDuties?.map(d => d.game_day) || [])];
 
   const handleAddGameDay = async () => {
@@ -51,17 +67,26 @@ const WashList = () => {
     }
 
     setNewGameDay('');
-    toast.success('Spieltag hinzugefügt');
     refetch();
   };
 
   const handleAssign = async (gameDay: string, userId?: string) => {
+    const targetUserId = userId || user!.id;
+
+    // Get user's team_id
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('team_id')
+      .eq('user_id', user!.id)
+      .single();
+
     const { error } = await supabase
       .from('wash_duties')
       .insert({
         game_day: gameDay,
-        user_id: userId || user!.id,
+        user_id: targetUserId,
         assigned_by: user!.id,
+        team_id: profile!.team_id,
       });
 
     if (error) {
@@ -74,11 +99,26 @@ const WashList = () => {
       return;
     }
 
+    // Increment wash_count
+    const { data: currentProfile } = await supabase
+      .from('profiles')
+      .select('wash_count')
+      .eq('user_id', targetUserId)
+      .single();
+
+    if (currentProfile) {
+      await supabase
+        .from('profiles')
+        .update({ wash_count: currentProfile.wash_count + 1 })
+        .eq('user_id', targetUserId);
+    }
+
     toast.success('Eintrag erfolgreich');
+    setSelectedUserId('');
     refetch();
   };
 
-  const handleRemove = async (id: string) => {
+  const handleRemove = async (id: string, userId: string) => {
     const { error } = await supabase
       .from('wash_duties')
       .delete()
@@ -88,6 +128,20 @@ const WashList = () => {
       toast.error('Fehler beim Entfernen');
       console.error(error);
       return;
+    }
+
+    // Decrement wash_count
+    const { data: currentProfile } = await supabase
+      .from('profiles')
+      .select('wash_count')
+      .eq('user_id', userId)
+      .single();
+
+    if (currentProfile) {
+      await supabase
+        .from('profiles')
+        .update({ wash_count: Math.max(0, currentProfile.wash_count - 1) })
+        .eq('user_id', userId);
     }
 
     toast.success('Eintrag entfernt');
@@ -126,6 +180,7 @@ const WashList = () => {
         gameDays.map((gameDay) => {
           const duties = washDuties?.filter(d => d.game_day === gameDay) || [];
           const userAssigned = duties.some(d => d.user_id === user?.id);
+          const isFull = duties.length >= 1;
 
           return (
             <Card key={gameDay}>
@@ -141,7 +196,7 @@ const WashList = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleRemove(duty.id)}
+                            onClick={() => handleRemove(duty.id, duty.user_id)}
                           >
                             <X className="h-3 w-3" />
                           </Button>
@@ -151,7 +206,7 @@ const WashList = () => {
                   </div>
                 )}
 
-                {!userAssigned && (
+                {!userAssigned && !isFull && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -160,6 +215,37 @@ const WashList = () => {
                   >
                     Eintragen
                   </Button>
+                )}
+
+                {isAdmin && !isFull && (
+                  <div className="mt-3 space-y-2">
+                    <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Spieler auswählen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allPlayers?.map((player) => (
+                          <SelectItem key={player.user_id} value={player.user_id}>
+                            {player.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      onClick={() => selectedUserId && handleAssign(gameDay, selectedUserId)}
+                      disabled={!selectedUserId}
+                    >
+                      Spieler eintragen
+                    </Button>
+                  </div>
+                )}
+
+                {isFull && !userAssigned && (
+                  <p className="text-sm text-muted-foreground text-center">
+                    Bereits belegt (1/1)
+                  </p>
                 )}
               </CardContent>
             </Card>

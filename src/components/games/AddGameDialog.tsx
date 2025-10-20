@@ -35,6 +35,13 @@ const AddGameDialog = ({ open, onOpenChange, onSuccess }: AddGameDialogProps) =>
 
     setLoading(true);
 
+    // Get user's team_id
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('team_id')
+      .eq('user_id', user!.id)
+      .single();
+
     const { error } = await supabase
       .from('games')
       .insert({
@@ -42,6 +49,7 @@ const AddGameDialog = ({ open, onOpenChange, onSuccess }: AddGameDialogProps) =>
         location: location.trim(),
         game_date: new Date(gameDate).toISOString(),
         created_by: user!.id,
+        team_id: profile!.team_id,
       });
 
     if (error) {

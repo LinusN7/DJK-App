@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -21,6 +22,16 @@ const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [teamId, setTeamId] = useState('');
+  const [teams, setTeams] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    const fetchTeams = async () => {
+      const { data } = await supabase.from('teams').select('id, name').order('name');
+      if (data) setTeams(data);
+    };
+    fetchTeams();
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,17 +70,23 @@ const Auth = () => {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!teamId) {
+      toast.error('Bitte wähle ein Team aus');
+      return;
+    }
+
     try {
       const validated = authSchema.parse({ email, password, fullName });
       setLoading(true);
 
-      const { error } = await supabase.auth.signUp({
+      const { data: authData, error } = await supabase.auth.signUp({
         email: validated.email,
         password: validated.password,
         options: {
           emailRedirectTo: `${window.location.origin}/`,
           data: {
             full_name: validated.fullName,
+            team_id: teamId,
           },
         },
       });
@@ -83,7 +100,19 @@ const Auth = () => {
         return;
       }
 
-      toast.success('Account erfolgreich erstellt!');
+      if (authData.user) {
+        // Update profile with team_id
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ team_id: teamId })
+          .eq('user_id', authData.user.id);
+
+        if (profileError) {
+          console.error('Profile update error:', profileError);
+        }
+      }
+
+      toast.success('Konto erstellt! Bitte bestätige deine E-Mail über den Link.');
       navigate('/');
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -153,6 +182,21 @@ const Auth = () => {
                     onChange={(e) => setFullName(e.target.value)}
                     required
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="team">Team</Label>
+                  <Select value={teamId} onValueChange={setTeamId} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Team auswählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teams.map((team) => (
+                        <SelectItem key={team.id} value={team.id}>
+                          {team.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">E-Mail</Label>

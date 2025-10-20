@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -15,6 +16,7 @@ const LockerDutyList = () => {
   const { user, isAdmin } = useAuth();
   const [weekStart, setWeekStart] = useState('');
   const [weekEnd, setWeekEnd] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
 
   const { data: lockerDuties, refetch } = useQuery({
     queryKey: ['locker-duties'],
@@ -41,6 +43,20 @@ const LockerDutyList = () => {
     },
   });
 
+  const { data: allPlayers } = useQuery({
+    queryKey: ['all-players-locker'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .order('full_name');
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: isAdmin,
+  });
+
   const weeks = [...new Map(
     lockerDuties?.map(d => [`${d.week_start}-${d.week_end}`, { start: d.week_start, end: d.week_end }]) || []
   ).values()];
@@ -62,14 +78,24 @@ const LockerDutyList = () => {
     refetch();
   };
 
-  const handleAssign = async (start: string, end: string) => {
+  const handleAssign = async (start: string, end: string, userId?: string) => {
+    const targetUserId = userId || user!.id;
+
+    // Get user's team_id
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('team_id')
+      .eq('user_id', user!.id)
+      .single();
+
     const { error } = await supabase
       .from('locker_duties')
       .insert({
         week_start: start,
         week_end: end,
-        user_id: user!.id,
+        user_id: targetUserId,
         assigned_by: user!.id,
+        team_id: profile!.team_id,
       });
 
     if (error) {
@@ -78,11 +104,26 @@ const LockerDutyList = () => {
       return;
     }
 
+    // Increment locker_duty_count
+    const { data: currentProfile } = await supabase
+      .from('profiles')
+      .select('locker_duty_count')
+      .eq('user_id', targetUserId)
+      .single();
+
+    if (currentProfile) {
+      await supabase
+        .from('profiles')
+        .update({ locker_duty_count: currentProfile.locker_duty_count + 1 })
+        .eq('user_id', targetUserId);
+    }
+
     toast.success('Eintrag erfolgreich');
+    setSelectedUserId('');
     refetch();
   };
 
-  const handleRemove = async (id: string) => {
+  const handleRemove = async (id: string, userId: string) => {
     const { error } = await supabase
       .from('locker_duties')
       .delete()
@@ -92,6 +133,20 @@ const LockerDutyList = () => {
       toast.error('Fehler beim Entfernen');
       console.error(error);
       return;
+    }
+
+    // Decrement locker_duty_count
+    const { data: currentProfile } = await supabase
+      .from('profiles')
+      .select('locker_duty_count')
+      .eq('user_id', userId)
+      .single();
+
+    if (currentProfile) {
+      await supabase
+        .from('profiles')
+        .update({ locker_duty_count: Math.max(0, currentProfile.locker_duty_count - 1) })
+        .eq('user_id', userId);
     }
 
     toast.success('Eintrag entfernt');
@@ -163,7 +218,7 @@ const LockerDutyList = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleRemove(duty.id)}
+                            onClick={() => handleRemove(duty.id, duty.user_id)}
                           >
                             <X className="h-3 w-3" />
                           </Button>
@@ -182,6 +237,31 @@ const LockerDutyList = () => {
                   >
                     Eintragen ({duties.length}/3)
                   </Button>
+                )}
+
+                {isAdmin && canAssign && (
+                  <div className="mt-3 space-y-2">
+                    <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Spieler auswählen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {allPlayers?.map((player) => (
+                          <SelectItem key={player.user_id} value={player.user_id}>
+                            {player.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      onClick={() => selectedUserId && handleAssign(week.start, week.end, selectedUserId)}
+                      disabled={!selectedUserId}
+                    >
+                      Spieler eintragen
+                    </Button>
+                  </div>
                 )}
                 
                 {!canAssign && !userAssigned && (
