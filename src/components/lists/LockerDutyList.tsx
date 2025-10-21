@@ -24,7 +24,7 @@ const LockerDutyList = () => {
       const { data, error } = await supabase
         .from('locker_duties')
         .select('*')
-        .order('week_start', { ascending: false });
+        .order('week_start', { ascending: true });
       
       if (error) throw error;
 

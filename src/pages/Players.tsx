@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Shield, ShieldOff } from 'lucide-react';
@@ -85,6 +85,7 @@ const Players = () => {
             <CardContent className="p-4">
               <div className="flex items-center gap-4">
                 <Avatar>
+                  <AvatarImage src={player.avatar_url} />
                   <AvatarFallback>
                     {player.full_name.split(' ').map(n => n[0]).join('')}
                   </AvatarFallback>

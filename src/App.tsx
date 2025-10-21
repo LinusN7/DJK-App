@@ -8,6 +8,7 @@ import Auth from "./pages/Auth";
 import Games from "./pages/Games";
 import Lists from "./pages/Lists";
 import Players from "./pages/Players";
+import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import BottomNav from "./components/BottomNav";
 
@@ -92,6 +93,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Players />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <Profile />
                 </ProtectedRoute>
               }
             />

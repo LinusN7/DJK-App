@@ -28,7 +28,18 @@ const Auth = () => {
   useEffect(() => {
     const fetchTeams = async () => {
       const { data } = await supabase.from('teams').select('id, name').order('name');
-      if (data) setTeams(data);
+      if (data) {
+        // Sort by specific order: Erste, Zweite, Dritte
+        const order = ['Erste', 'Zweite', 'Dritte'];
+        const sorted = data.sort((a, b) => {
+          const indexA = order.indexOf(a.name);
+          const indexB = order.indexOf(b.name);
+          if (indexA === -1) return 1;
+          if (indexB === -1) return -1;
+          return indexA - indexB;
+        });
+        setTeams(sorted);
+      }
     };
     fetchTeams();
   }, []);
@@ -92,8 +103,8 @@ const Auth = () => {
       });
 
       if (error) {
-        if (error.message.includes('already registered')) {
-          toast.error('Diese E-Mail ist bereits registriert');
+        if (error.message.includes('already registered') || error.message.includes('User already registered')) {
+          toast.error('Dieser Account existiert bereits. Bitte einloggen.');
         } else {
           toast.error(error.message);
         }

@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Calendar, ClipboardList, Users } from 'lucide-react';
+import { Calendar, ClipboardList, Users, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const BottomNav = () => {
@@ -9,6 +9,7 @@ const BottomNav = () => {
     { path: '/games', label: 'Spieltag', icon: Calendar },
     { path: '/lists', label: 'Listen', icon: ClipboardList },
     { path: '/players', label: 'Spieler', icon: Users },
+    { path: '/profile', label: 'Profil', icon: User },
   ];
 
   return (

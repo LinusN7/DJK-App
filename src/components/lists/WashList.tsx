@@ -20,7 +20,7 @@ const WashList = () => {
       const { data, error } = await supabase
         .from('wash_duties')
         .select('*')
-        .order('assigned_at', { ascending: false });
+        .order('game_day', { ascending: true });
       
       if (error) throw error;
 
