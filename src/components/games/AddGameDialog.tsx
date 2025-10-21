@@ -36,11 +36,18 @@ const AddGameDialog = ({ open, onOpenChange, onSuccess }: AddGameDialogProps) =>
     setLoading(true);
 
     // Get user's team_id
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('team_id')
       .eq('user_id', user!.id)
       .single();
+
+    if (profileError || !profile) {
+      toast.error('Profil konnte nicht geladen werden');
+      console.error(profileError);
+      setLoading(false);
+      return;
+    }
 
     const { error } = await supabase
       .from('games')
@@ -49,7 +56,7 @@ const AddGameDialog = ({ open, onOpenChange, onSuccess }: AddGameDialogProps) =>
         location: location.trim(),
         game_date: new Date(gameDate).toISOString(),
         created_by: user!.id,
-        team_id: profile!.team_id,
+        team_id: profile.team_id,
       });
 
     if (error) {
