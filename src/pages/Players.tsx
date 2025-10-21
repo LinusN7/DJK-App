@@ -109,23 +109,25 @@ const Players = () => {
                 </div>
 
                 {isAdmin && player.user_id !== user?.id && (
-                  <Button
-                    variant={player.isAdmin ? "destructive" : "outline"}
-                    size="sm"
-                    onClick={() => toggleAdmin(player.user_id, player.isAdmin)}
-                  >
-                    {player.isAdmin ? (
-                      <>
-                        <ShieldOff className="h-4 w-4 mr-1" />
-                        Entfernen
-                      </>
-                    ) : (
-                      <>
-                        <Shield className="h-4 w-4 mr-1" />
-                        Admin
-                      </>
-                    )}
-                  </Button>
+                  <>
+                    <Button
+                      variant={player.isAdmin ? "destructive" : "outline"}
+                      size="sm"
+                      onClick={() => toggleAdmin(player.user_id, player.isAdmin)}
+                    >
+                      {player.isAdmin ? (
+                        <>
+                          <ShieldOff className="h-4 w-4 mr-1" />
+                          Entfernen
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="h-4 w-4 mr-1" />
+                          Admin
+                        </>
+                      )}
+                    </Button>
+                  </>
                 )}
               </div>
             </CardContent>

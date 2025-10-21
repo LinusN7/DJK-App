@@ -141,17 +141,21 @@ const Profile = () => {
         await supabase.storage.from('avatars').remove([path]);
       }
 
-      // Delete user (this will cascade delete profile, roles, etc.)
-      const { error } = await supabase.auth.admin.deleteUser(user.id);
+      // For normal users, they can only delete their own account
+      // But we can't use admin.deleteUser from client, so we use an edge function
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: { userId: user.id },
+      });
       
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       toast.success('Account gelöscht');
       await supabase.auth.signOut();
       navigate('/auth');
     } catch (error: any) {
       console.error('Error deleting account:', error);
-      toast.error('Fehler beim Löschen. Bitte Admin kontaktieren.');
+      toast.error('Fehler beim Löschen: ' + (error.message || 'Unbekannter Fehler'));
     }
   };
 
