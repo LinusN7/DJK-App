@@ -1,294 +1,150 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Upload, Trash2, Save } from 'lucide-react';
-import { toast } from 'sonner';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
 
-const Profile = () => {
-  const { user } = useAuth();
+export default function Profile() {
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const [uploading, setUploading] = useState(false);
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('');
 
-  const { data: profile, refetch } = useQuery({
-    queryKey: ['profile', user?.id],
-    queryFn: async () => {
+  const [loading, setLoading] = useState(true);
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  // 🧠 Daten aus der profiles-Tabelle laden
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
       const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user!.id)
-        .single();
-      
-      if (error) throw error;
-      
-      setFullName(data.full_name);
-      setEmail(user?.email || '');
-      
-      return data;
-    },
-    enabled: !!user,
-  });
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-
-    setUploading(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const filePath = `${user.id}/avatar.${fileExt}`;
-
-      // Delete old avatar if exists
-      if (profile?.avatar_url) {
-        const oldPath = profile.avatar_url.split('/').pop();
-        await supabase.storage.from('avatars').remove([`${user.id}/${oldPath}`]);
+      if (error) {
+        console.error("Fehler beim Laden des Profils:", error);
+        toast.error("Profil konnte nicht geladen werden");
+      } else if (data) {
+        setFullName(data.full_name ?? "");
+        setEmail(user.email ?? "");
       }
 
-      // Upload new avatar
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, { upsert: true });
+      setLoading(false);
+    };
 
-      if (uploadError) throw uploadError;
+    fetchProfile();
+  }, [user]);
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      // Update profile
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: publicUrl })
-        .eq('user_id', user.id);
-
-      if (updateError) throw updateError;
-
-      toast.success('Profilbild hochgeladen');
-      refetch();
-    } catch (error) {
-      console.error('Error uploading avatar:', error);
-      toast.error('Fehler beim Hochladen');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleSaveProfile = async () => {
+  // 🔄 Änderungen speichern
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!user) return;
+    setLoading(true);
 
     try {
-      // Update profile name
+      // Name updaten
       const { error: profileError } = await supabase
-        .from('profiles')
+        .from("profiles")
         .update({ full_name: fullName })
-        .eq('user_id', user.id);
+        .eq("user_id", user.id);
 
       if (profileError) throw profileError;
 
-      // Update email if changed
+      // E-Mail ändern (wenn anders)
       if (email !== user.email) {
-        const { error: emailError } = await supabase.auth.updateUser({
-          email: email,
-        });
+        const { error: emailError } = await supabase.auth.updateUser({ email });
         if (emailError) throw emailError;
       }
 
-      // Update password if provided
-      if (newPassword) {
-        const { error: passwordError } = await supabase.auth.updateUser({
-          password: newPassword,
+      // Passwort ändern (nur wenn Feld nicht leer)
+      if (password.trim() !== "") {
+        const { error: pwError } = await supabase.auth.updateUser({
+          password,
         });
-        if (passwordError) throw passwordError;
-        setNewPassword('');
+        if (pwError) throw pwError;
       }
 
-      toast.success('Profil aktualisiert');
-      refetch();
+      toast.success("Profil erfolgreich aktualisiert!");
     } catch (error: any) {
-      console.error('Error updating profile:', error);
-      toast.error(error.message || 'Fehler beim Speichern');
+      console.error("Fehler beim Speichern:", error);
+      toast.error("Änderungen konnten nicht gespeichert werden");
+    } finally {
+      setPassword("");
+      setLoading(false);
     }
   };
 
-  const handleDeleteAccount = async () => {
-    if (!user) return;
-
-    try {
-      // Delete avatar from storage
-      if (profile?.avatar_url) {
-        const path = profile.avatar_url.split('/').slice(-2).join('/');
-        await supabase.storage.from('avatars').remove([path]);
-      }
-
-      // For normal users, they can only delete their own account
-      // But we can't use admin.deleteUser from client, so we use an edge function
-      const { data, error } = await supabase.functions.invoke('delete-user', {
-        body: { userId: user.id },
-      });
-      
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
-      toast.success('Account gelöscht');
-      await supabase.auth.signOut();
-      navigate('/auth');
-    } catch (error: any) {
-      console.error('Error deleting account:', error);
-      toast.error('Fehler beim Löschen: ' + (error.message || 'Unbekannter Fehler'));
-    }
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/auth", { replace: true });
   };
 
-  if (!profile) {
+  if (loading) {
     return (
-      <div className="container mx-auto p-4">
-        <p className="text-center text-muted-foreground">Lädt...</p>
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-muted-foreground">Lädt...</p>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-4 pb-20">
-      <h1 className="text-3xl font-bold mb-6">Profil</h1>
+    <div className="flex flex-col items-center p-6 space-y-8 w-full max-w-md mx-auto">
+      <h1 className="text-2xl font-bold">Profil</h1>
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Profilbild</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center gap-4">
-          <Avatar className="h-32 w-32">
-            <AvatarImage src={profile.avatar_url} />
-            <AvatarFallback className="text-2xl">
-              {profile.full_name.split(' ').map(n => n[0]).join('')}
-            </AvatarFallback>
-          </Avatar>
-          
-          <label htmlFor="avatar-upload">
-            <Button disabled={uploading} asChild>
-              <span>
-                <Upload className="h-4 w-4 mr-2" />
-                {uploading ? 'Lädt hoch...' : 'Bild hochladen'}
-              </span>
-            </Button>
-          </label>
-          <input
-            id="avatar-upload"
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleAvatarUpload}
-            disabled={uploading}
+      <form onSubmit={handleSave} className="w-full space-y-4">
+        {/* Name */}
+        <div className="space-y-2">
+          <Label htmlFor="name">Name</Label>
+          <Input
+            id="name"
+            type="text"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
           />
-        </CardContent>
-      </Card>
+        </div>
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Persönliche Daten</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-            />
-          </div>
+        {/* E-Mail */}
+        <div className="space-y-2">
+          <Label htmlFor="email">E-Mail-Adresse</Label>
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
 
-          <div>
-            <Label htmlFor="email">E-Mail</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
+        {/* Passwort */}
+        <div className="space-y-2">
+          <Label htmlFor="password">Neues Passwort</Label>
+          <Input
+            id="password"
+            type="password"
+            value={password}
+            placeholder="Leer lassen, um es nicht zu ändern"
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
 
-          <div>
-            <Label htmlFor="password">Neues Passwort (optional)</Label>
-            <Input
-              id="password"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Leer lassen, wenn keine Änderung"
-            />
-          </div>
+        {/* Speichern */}
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading ? "Speichern..." : "Änderungen speichern"}
+        </Button>
+      </form>
 
-          <div className="space-y-2">
-            <div className="text-sm text-muted-foreground">
-              🧺 Gewaschen: {profile.wash_count}x
-            </div>
-            <div className="text-sm text-muted-foreground">
-              🚪 Kabinendienst: {profile.locker_duty_count}x
-            </div>
-            {profile.jersey_number && (
-              <div className="text-sm text-muted-foreground">
-                👕 Trikotnummer: #{profile.jersey_number}
-              </div>
-            )}
-          </div>
-
-          <Button onClick={handleSaveProfile} className="w-full">
-            <Save className="h-4 w-4 mr-2" />
-            Speichern
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Card className="border-destructive">
-        <CardHeader>
-          <CardTitle className="text-destructive">Gefahrenzone</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="w-full">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Account löschen
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Account wirklich löschen?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Diese Aktion kann nicht rückgängig gemacht werden. Alle deine Daten werden permanent gelöscht.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Abbrechen</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive">
-                  Löschen
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </CardContent>
-      </Card>
+      {/* Abmelden */}
+      <Button
+        onClick={handleLogout}
+        variant="destructive"
+        className="w-full max-w-sm"
+      >
+        Abmelden
+      </Button>
     </div>
   );
-};
-
-export default Profile;
+}

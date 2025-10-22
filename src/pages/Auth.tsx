@@ -10,10 +10,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { z } from 'zod';
 
-const authSchema = z.object({
+const loginSchema = z.object({
   email: z.string().email({ message: 'Bitte gib eine gültige E-Mail-Adresse ein' }),
   password: z.string().min(6, { message: 'Passwort muss mindestens 6 Zeichen lang sein' }),
-  fullName: z.string().min(2, { message: 'Name muss mindestens 2 Zeichen lang sein' }).optional(),
+});
+
+const signupSchema = z.object({
+  email: z.string().email({ message: 'Bitte gib eine gültige E-Mail-Adresse ein' }),
+  password: z.string().min(6, { message: 'Passwort muss mindestens 6 Zeichen lang sein' }),
+  fullName: z.string().min(2, { message: 'Name muss mindestens 2 Zeichen lang sein' }),
 });
 
 const Auth = () => {
@@ -48,7 +53,7 @@ const Auth = () => {
     e.preventDefault();
     
     try {
-      const validated = authSchema.parse({ email, password });
+      const validated = loginSchema.parse({ email, password });
       setLoading(true);
 
       const { error } = await supabase.auth.signInWithPassword({
@@ -78,63 +83,76 @@ const Auth = () => {
     }
   };
 
+
+
   const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!teamId) {
-      toast.error('Bitte wähle ein Team aus');
+  e.preventDefault();
+
+  if (!teamId) {
+    toast.error('Bitte wähle ein Team aus');
+    return;
+  }
+
+  try {
+    const validated = signupSchema.parse({ email, password, fullName });
+    setLoading(true);
+
+    const { data: authData, error } = await supabase.auth.signUp({
+      email: validated.email,
+      password: validated.password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/`,
+        data: {
+          full_name: validated.fullName,
+          team_id: teamId,
+        },
+      },
+    });
+
+    if (error) {
+      if (
+        error.message.includes('already registered') ||
+        error.message.includes('User already registered')
+      ) {
+        toast.error('Dieser Account existiert bereits. Bitte einloggen.');
+      } else {
+        toast.error(error.message);
+      }
       return;
     }
 
-    try {
-      const validated = authSchema.parse({ email, password, fullName });
-      setLoading(true);
+    if (authData.user) {
+      // Profil anlegen (ACHTUNG: in deiner DB heißt die Spalte 'team', nicht 'team_id')
+      const selectedTeamName =
+        teams.find((t) => t.id === teamId)?.name ?? 'Unbekannt';
 
-      const { data: authData, error } = await supabase.auth.signUp({
-        email: validated.email,
-        password: validated.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: {
-            full_name: validated.fullName,
-            team_id: teamId,
-          },
-        },
-      });
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          user_id: authData.user.id,
+          full_name: validated.fullName, 
+          team: selectedTeamName,
+        });
 
-      if (error) {
-        if (error.message.includes('already registered') || error.message.includes('User already registered')) {
-          toast.error('Dieser Account existiert bereits. Bitte einloggen.');
-        } else {
-          toast.error(error.message);
-        }
-        return;
+      if (profileError) {
+        console.error('Fehler beim Erstellen des Profils:', profileError);
       }
-
-      if (authData.user) {
-        // Update profile with team_id
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ team_id: teamId })
-          .eq('user_id', authData.user.id);
-
-        if (profileError) {
-          console.error('Profile update error:', profileError);
-        }
-      }
-
-      toast.success('Konto erstellt! Bitte bestätige deine E-Mail über den Link.');
-      navigate('/');
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        toast.error(error.errors[0].message);
-      } else {
-        toast.error('Ein Fehler ist aufgetreten');
-      }
-    } finally {
-      setLoading(false);
     }
-  };
+
+    toast.success('Konto erstellt! Bitte bestätige deine E-Mail über den Link.');
+    navigate('/');
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      toast.error(error.errors[0].message);
+    } else {
+      toast.error('Ein Fehler ist aufgetreten');
+    }
+  } finally {
+    setLoading(false);
+  }
+};
+
+
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">

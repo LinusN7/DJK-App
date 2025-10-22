@@ -7,6 +7,7 @@ interface AuthContextType {
   session: Session | null;
   isAdmin: boolean;
   loading: boolean;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -14,6 +15,7 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   isAdmin: false,
   loading: true,
+  signOut: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -25,29 +27,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          setTimeout(() => {
-            checkAdminStatus(session.user.id);
-          }, 0);
-        } else {
-          setIsAdmin(false);
-        }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      if (session?.user) {
+        checkAdminStatus(session.user.id);
+      } else {
+        setIsAdmin(false);
+        setLoading(false); // 🔹 Wichtig: Laden beenden, wenn kein User
       }
-    );
+    });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
         checkAdminStatus(session.user.id);
       } else {
-        setLoading(false);
+        setLoading(false); // 🔹 Laden beenden, wenn keine Session
       }
     });
 
@@ -64,19 +63,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .maybeSingle();
 
       if (error) {
-        console.error('Error checking admin status:', error);
+        console.warn('Keine Admin-Tabelle gefunden oder kein Zugriff:', error.message);
       }
-      
+
       setIsAdmin(!!data);
     } catch (error) {
-      console.error('Error in checkAdminStatus:', error);
+      console.warn('Fehler in checkAdminStatus:', error);
     } finally {
+      setLoading(false); // 🔹 Immer beenden, auch bei Fehler
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      setSession(null);
+      setIsAdmin(false);
       setLoading(false);
+    } catch (error) {
+      console.error('Fehler beim Abmelden:', error);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isAdmin, loading }}>
+    <AuthContext.Provider value={{ user, session, isAdmin, loading, signOut }}>
       {children}
     </AuthContext.Provider>
   );
