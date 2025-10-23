@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 
 export default function Profile() {
   const { user, signOut } = useAuth();
@@ -16,7 +17,7 @@ export default function Profile() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // 🧠 Daten aus der profiles-Tabelle laden
+  // 🧠 Profil-Daten laden
   useEffect(() => {
     const fetchProfile = async () => {
       if (!user) return;
@@ -47,7 +48,6 @@ export default function Profile() {
     setLoading(true);
 
     try {
-      // Name updaten
       const { error: profileError } = await supabase
         .from("profiles")
         .update({ full_name: fullName })
@@ -55,13 +55,11 @@ export default function Profile() {
 
       if (profileError) throw profileError;
 
-      // E-Mail ändern (wenn anders)
       if (email !== user.email) {
         const { error: emailError } = await supabase.auth.updateUser({ email });
         if (emailError) throw emailError;
       }
 
-      // Passwort ändern (nur wenn Feld nicht leer)
       if (password.trim() !== "") {
         const { error: pwError } = await supabase.auth.updateUser({
           password,
@@ -84,6 +82,28 @@ export default function Profile() {
     navigate("/auth", { replace: true });
   };
 
+  // 🗑️ Account löschen
+  const handleDeleteAccount = async () => {
+    if (!confirm("Willst du deinen Account wirklich dauerhaft löschen?")) return;
+
+    try {
+      const { error } = await supabase.rpc("delete_user_and_data");
+
+      if (error) {
+        console.error("Fehler beim Löschen des Accounts:", error);
+        toast.error("Fehler beim Löschen des Accounts");
+        return;
+      }
+
+      toast.success("Dein Account wurde gelöscht");
+      await supabase.auth.signOut();
+      navigate("/auth", { replace: true });
+    } catch (err) {
+      console.error("Fehler beim Account-Löschen:", err);
+      toast.error("Ein unerwarteter Fehler ist aufgetreten");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -93,11 +113,10 @@ export default function Profile() {
   }
 
   return (
-    <div className="flex flex-col items-center p-6 space-y-8 w-full max-w-md mx-auto">
+    <div className="flex flex-col items-center p-6 space-y-6 w-full max-w-md mx-auto">
       <h1 className="text-2xl font-bold">Profil</h1>
 
-      <form onSubmit={handleSave} className="w-full space-y-4">
-        {/* Name */}
+      <form onSubmit={handleSave} className="w-full space-y-3">
         <div className="space-y-2">
           <Label htmlFor="name">Name</Label>
           <Input
@@ -108,7 +127,6 @@ export default function Profile() {
           />
         </div>
 
-        {/* E-Mail */}
         <div className="space-y-2">
           <Label htmlFor="email">E-Mail-Adresse</Label>
           <Input
@@ -119,7 +137,6 @@ export default function Profile() {
           />
         </div>
 
-        {/* Passwort */}
         <div className="space-y-2">
           <Label htmlFor="password">Neues Passwort</Label>
           <Input
@@ -131,20 +148,25 @@ export default function Profile() {
           />
         </div>
 
-        {/* Speichern */}
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? "Speichern..." : "Änderungen speichern"}
         </Button>
       </form>
 
-      {/* Abmelden */}
-      <Button
-        onClick={handleLogout}
-        variant="destructive"
-        className="w-full max-w-sm"
-      >
-        Abmelden
-      </Button>
+      <div className="w-full flex flex-col gap-2">
+        <Button onClick={handleLogout} variant="outline" className="w-full">
+          Abmelden
+        </Button>
+
+        <Button
+          onClick={handleDeleteAccount}
+          variant="destructive"
+          className="w-full flex items-center justify-center gap-2"
+        >
+          <Trash2 className="h-4 w-4" />
+          Account löschen
+        </Button>
+      </div>
     </div>
   );
 }

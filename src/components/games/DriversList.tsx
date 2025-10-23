@@ -1,11 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { UserPlus, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { X } from "lucide-react";
+import { toast } from "sonner";
 
 interface DriversListProps {
   gameId: string;
@@ -13,194 +12,226 @@ interface DriversListProps {
 }
 
 const DriversList = ({ gameId, onUpdate }: DriversListProps) => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const [drivers, setDrivers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentPassenger, setCurrentPassenger] = useState<string | null>(null);
 
-  const { data: drivers, refetch } = useQuery({
-    queryKey: ['drivers', gameId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('drivers')
-        .select('*')
-        .eq('game_id', gameId);
-      
-      if (error) throw error;
+  // 🚗 Fahrer + Mitfahrer abrufen
+  const fetchDrivers = async () => {
+    setLoading(true);
 
-      // Fetch profiles and passengers separately
-      const driverIds = data.map(d => d.user_id);
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, full_name')
-        .in('user_id', driverIds);
+  // Fahrer abrufen
+  const { data: driversData, error: driversError } = await supabase
+    .from("drivers")
+    .select(`
+      id,
+      game_id,
+      user_id,
+      location,
+      departure_time,
+      seats,
+      created_at,
+      profiles!drivers_user_id_fkey (full_name)
+    `)
+    .eq("game_id", gameId)
+    .order("created_at", { ascending: true });
 
-      const { data: passengers } = await supabase
-        .from('passengers')
-        .select('id, driver_id, user_id')
-        .in('driver_id', data.map(d => d.id));
-
-      const passengerUserIds = passengers?.map(p => p.user_id) || [];
-      const { data: passengerProfiles } = await supabase
-        .from('profiles')
-        .select('user_id, full_name')
-        .in('user_id', passengerUserIds);
-
-      const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
-      const passengerProfileMap = new Map(passengerProfiles?.map(p => [p.user_id, p]) || []);
-
-      return data.map(driver => ({
-        ...driver,
-        profile: profileMap.get(driver.user_id),
-        passengers: passengers
-          ?.filter(p => p.driver_id === driver.id)
-          .map(p => ({
-            ...p,
-            profile: passengerProfileMap.get(p.user_id),
-          })) || [],
-      }));
-    },
-  });
-
-  const handleJoinDriver = async (driverId: string, availableSeats: number, currentPassengers: number) => {
-    if (currentPassengers >= availableSeats) {
-      toast.error('Alle Plätze sind bereits belegt');
+    if (driversError) {
+      console.error(driversError);
+      toast.error("Fehler beim Laden der Fahrer");
+      setLoading(false);
       return;
     }
 
-    const { error } = await supabase
-      .from('passengers')
-      .insert({
-        driver_id: driverId,
-        user_id: user!.id,
-      });
-
-    if (error) {
-      if (error.code === '23505') {
-        toast.error('Du bist bereits als Mitfahrer eingetragen');
-      } else {
-        toast.error('Fehler beim Eintragen');
-        console.error(error);
-      }
+    // Fahrer-IDs sammeln
+    const driverIds = driversData.map((d) => d.id);
+    if (driverIds.length === 0) {
+      setDrivers([]);
+      setLoading(false);
       return;
     }
 
-    toast.success('Als Mitfahrer eingetragen');
-    refetch();
-    onUpdate();
+    // Passagiere abrufen
+    const { data: passengersData, error: passengersError } = await supabase
+      .from("passengers")
+      .select("id, driver_id, user_id, profiles(full_name)")
+      .in("driver_id", driverIds);
+
+    if (passengersError) {
+      console.error(passengersError);
+      toast.error("Fehler beim Laden der Mitfahrer");
+      setLoading(false);
+      return;
+    }
+
+    // Aktuellen Nutzerstatus prüfen (ob er irgendwo mitfährt)
+    const myPassenger = passengersData?.find((p) => p.user_id === user?.id);
+    setCurrentPassenger(myPassenger ? myPassenger.driver_id : null);
+
+    // Fahrer mit Mitfahrern kombinieren
+    const driverMap = driversData.map((driver) => ({
+      ...driver,
+      passengers:
+        passengersData?.filter((p) => p.driver_id === driver.id) || [],
+    }));
+
+    setDrivers(driverMap);
+    setLoading(false);
   };
 
-  const handleRemoveDriver = async (driverId: string) => {
+  useEffect(() => {
+    fetchDrivers();
+  }, [gameId]);
+
+  // 👤 Spieler als Mitfahrer eintragen
+  const handleJoin = async (driverId: string) => {
+    if (!user) return;
+
+    // prüfen, ob Spieler bereits irgendwo Mitfahrer ist
+    const { data: existingPassenger } = await supabase
+      .from("passengers")
+      .select("id, driver_id")
+      .eq("user_id", user.id)
+      .single();
+
+    if (existingPassenger) {
+      toast.error("Du bist bereits bei einem Fahrer eingetragen");
+      return;
+    }
+
+    // Sitzplatz prüfen
+    const driver = drivers.find((d) => d.id === driverId);
+    if (driver.passengers.length >= driver.seats) {
+      toast.error("Keine Sitzplätze mehr verfügbar");
+      return;
+    }
+
     const { error } = await supabase
-      .from('drivers')
-      .delete()
-      .eq('id', driverId);
+      .from("passengers")
+      .insert([{ driver_id: driverId, user_id: user.id }]);
 
     if (error) {
-      toast.error('Fehler beim Entfernen');
       console.error(error);
+      toast.error("Fehler beim Eintragen");
       return;
     }
 
-    toast.success('Fahrer entfernt');
-    refetch();
+    toast.success("Du wurdest als Mitfahrer eingetragen 🚙");
+    fetchDrivers();
     onUpdate();
   };
 
+  // ❌ Austragen (Mitfahrer)
+  const handleLeave = async (passengerId: string) => {
+    const { error } = await supabase
+      .from("passengers")
+      .delete()
+      .eq("id", passengerId);
+
+    if (error) {
+      console.error(error);
+      toast.error("Fehler beim Austragen");
+      return;
+    }
+
+    toast.success("Du wurdest ausgetragen");
+    fetchDrivers();
+    onUpdate();
+  };
+
+  // 🧹 Admin entfernt Mitfahrer
   const handleRemovePassenger = async (passengerId: string) => {
     const { error } = await supabase
-      .from('passengers')
+      .from("passengers")
       .delete()
-      .eq('id', passengerId);
+      .eq("id", passengerId);
 
     if (error) {
-      toast.error('Fehler beim Entfernen');
       console.error(error);
+      toast.error("Fehler beim Entfernen des Mitfahrers");
       return;
     }
 
-    toast.success('Mitfahrer entfernt');
-    refetch();
+    toast.success("Mitfahrer entfernt");
+    fetchDrivers();
     onUpdate();
   };
 
-  if (!drivers || drivers.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground text-center py-4">
-        Noch keine Fahrer eingetragen
-      </p>
-    );
+  if (loading) {
+    return <p className="text-muted-foreground text-center">Lädt Fahrer...</p>;
+  }
+
+  if (drivers.length === 0) {
+    return <p className="text-muted-foreground text-center">Noch keine Fahrer</p>;
   }
 
   return (
-    <div className="space-y-3">
-      {drivers.map((driver) => {
-        const isUserDriver = driver.user_id === user?.id;
-        const passengers = driver.passengers || [];
-        const availableSeats = driver.available_seats - passengers.length;
-        const isUserPassenger = passengers.some((p: any) => p.user_id === user?.id);
-        const canJoin = !isUserDriver && !isUserPassenger && availableSeats > 0;
-
-        return (
-          <Card key={driver.id} className="p-4">
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <Avatar>
-                  <AvatarFallback>
-                    {driver.profile?.full_name?.split(' ').map((n: string) => n[0]).join('') || '?'}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-semibold">{driver.profile?.full_name || 'Unbekannt'}</p>
-                  <p className="text-sm text-muted-foreground">
-                    📍 {driver.departure_location}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    🚗 {availableSeats} von {driver.available_seats} Plätze frei
-                  </p>
-                </div>
+    <div className="space-y-4">
+      {drivers.map((driver) => (
+        <Card key={driver.id}>
+          <CardContent className="pt-4 space-y-3">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="font-semibold">
+                  🚗 {driver.profiles?.full_name || "Unbekannt"}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {driver.location} • {driver.departure_time} • {driver.seats} Sitzplätze
+                </p>
               </div>
-              {isUserDriver && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleRemoveDriver(driver.id)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
             </div>
 
-            {passengers.length > 0 && (
-              <div className="ml-12 space-y-2 mb-3">
-                {passengers.map((passenger: any) => (
-                  <div key={passenger.id} className="flex items-center justify-between text-sm">
-                    <span>👤 {passenger.profile?.full_name || 'Unbekannt'}</span>
-                    {(passenger.user_id === user?.id || isUserDriver) && (
+            {/* Mitfahrer */}
+            <div className="space-y-1">
+              {driver.passengers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Noch keine Mitfahrer
+                </p>
+              ) : (
+                driver.passengers.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex justify-between items-center text-sm border rounded-lg px-2 py-1"
+                  >
+                    <span>👤 {p.profiles?.full_name || "Unbekannt"}</span>
+                    {(p.user_id === user?.id || isAdmin) && (
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleRemovePassenger(passenger.id)}
+                        onClick={() =>
+                          p.user_id === user?.id
+                            ? handleLeave(p.id)
+                            : handleRemovePassenger(p.id)
+                        }
                       >
                         <X className="h-3 w-3" />
                       </Button>
                     )}
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
 
-            {canJoin && (
+            {/* Mitfahrer hinzufügen */}
+            {currentPassenger === null && driver.passengers.length < driver.seats && (
               <Button
-                variant="outline"
                 size="sm"
                 className="w-full"
-                onClick={() => handleJoinDriver(driver.id, driver.available_seats, passengers.length)}
+                onClick={() => handleJoin(driver.id)}
               >
-                <UserPlus className="h-4 w-4 mr-2" />
                 Als Mitfahrer eintragen
               </Button>
             )}
-          </Card>
-        );
-      })}
+
+            {currentPassenger === driver.id && (
+              <p className="text-xs text-center text-muted-foreground">
+                ✅ Du bist bei diesem Fahrer eingetragen
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 };

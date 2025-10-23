@@ -1,92 +1,94 @@
-import { useState } from 'react';
-import { format } from 'date-fns';
-import { de } from 'date-fns/locale';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Plus, Trash2 } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import DriversList from './DriversList';
-import AddDriverDialog from './AddDriverDialog';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
+import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface GameCardProps {
   game: any;
-  onUpdate: () => void;
 }
 
-const GameCard = ({ game, onUpdate }: GameCardProps) => {
-  const { isAdmin } = useAuth();
-  const [addDriverOpen, setAddDriverOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+const GameCard = ({ game }: GameCardProps) => {
+  const navigate = useNavigate();
 
-  const handleDelete = async () => {
-    if (!confirm('Möchtest du dieses Spiel wirklich löschen?')) return;
-    
-    setDeleting(true);
-    const { error } = await supabase
-      .from('games')
-      .delete()
-      .eq('id', game.id);
-    
-    if (error) {
-      toast.error('Fehler beim Löschen');
-      console.error(error);
-    } else {
-      toast.success('Spiel gelöscht');
-      onUpdate();
-    }
-    setDeleting(false);
-  };
+  // 🔹 Fahrer & Mitfahrer abrufen
+  const { data: driversWithPassengers } = useQuery({
+    queryKey: ["drivers", game.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("drivers")
+        .select(`
+          id,
+          location,
+          departure_time,
+          seats,
+          profiles!drivers_user_id_fkey (full_name),
+          passengers(
+            id,
+            profiles!passengers_user_id_fkey (full_name)
+          )
+        `)
+        .eq("game_id", game.id);
+
+      if (error) {
+        console.error(error);
+        toast.error("Fehler beim Laden der Fahrer");
+        return [];
+      }
+
+      return data || [];
+    },
+  });
 
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <div>
-              <CardTitle className="text-xl">
-                {game.opponent}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                {format(new Date(game.game_date), 'PPP', { locale: de })} • {game.location}
-              </p>
-            </div>
-            {isAdmin && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleDelete}
-                disabled={deleting}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-semibold">Mitfahrgelegenheiten</h3>
-            <Button size="sm" onClick={() => setAddDriverOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" />
-              Als Fahrer anbieten
-            </Button>
-          </div>
-          
-          <DriversList gameId={game.id} onUpdate={onUpdate} />
-        </CardContent>
-      </Card>
+    <Card
+      onClick={() => navigate(`/games/${game.id}`)}
+      className="cursor-pointer hover:shadow-md transition"
+    >
+      <CardHeader>
+        <CardTitle className="text-xl font-semibold">
+          {game.opponent}
+        </CardTitle>
+        {game.game_date && (
+          <p className="text-sm text-muted-foreground">
+            {format(new Date(game.game_date), "PPP", { locale: de })}
+          </p>
+        )}
+      </CardHeader>
 
-      <AddDriverDialog
-        open={addDriverOpen}
-        onOpenChange={setAddDriverOpen}
-        gameId={game.id}
-        onSuccess={() => {
-          onUpdate();
-          setAddDriverOpen(false);
-        }}
-      />
-    </>
+      <CardContent className="space-y-3">
+        {(!driversWithPassengers || driversWithPassengers.length === 0) ? (
+          <p className="text-sm text-muted-foreground text-center">
+            Noch keine Fahrer eingetragen
+          </p>
+        ) : (
+          driversWithPassengers.map((driver) => (
+            <div
+              key={driver.id}
+              className="border rounded-lg p-2 text-sm bg-gray-50"
+            >
+              <p className="font-medium">
+                🚗 {driver.profiles?.full_name || "Unbekannt"}
+              </p>
+              <p className="text-muted-foreground">
+                {driver.location} • {driver.departure_time} •{" "}
+                {driver.seats} zusätzlich verfügbare Sitzplätze
+              </p>
+
+              {driver.passengers?.length > 0 && (
+                <ul className="pl-4 list-disc text-muted-foreground mt-1">
+                  {driver.passengers.map((p: any) => (
+                    <li key={p.id}>{p.profiles?.full_name || "Unbekannt"}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
   );
 };
 

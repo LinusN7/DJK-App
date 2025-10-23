@@ -42,6 +42,7 @@ const WashList = () => {
     },
   });
 
+  // 🔹 Spieler abrufen
   const { data: allPlayers } = useQuery({
     queryKey: ["all-players"],
     queryFn: async () => {
@@ -55,6 +56,7 @@ const WashList = () => {
     enabled: isAdmin,
   });
 
+  // ➕ Spieltag hinzufügen
   const handleAddGameDay = async () => {
     if (!newGameDay.trim() || !newGameDate) {
       toast.error("Bitte Spieltag und Datum angeben");
@@ -90,6 +92,7 @@ const WashList = () => {
     refetch();
   };
 
+  // 👤 Spieler eintragen
   const handleAssign = async (gameDay: string, userId?: string) => {
     const targetUserId = userId || user!.id;
 
@@ -116,25 +119,19 @@ const WashList = () => {
       return;
     }
 
-    // Waschzähler +1
-    const { data: currentProfile } = await supabase
-      .from("profiles")
-      .select("wash_count")
-      .eq("user_id", targetUserId)
-      .single();
-
-    if (currentProfile) {
-      await supabase
-        .from("profiles")
-        .update({ wash_count: (currentProfile.wash_count || 0) + 1 })
-        .eq("user_id", targetUserId);
-    }
+    // ✅ RPC: wash_count +1
+    const { error: rpcIncErr } = await supabase.rpc("inc_wash_count", {
+      p_user_id: targetUserId,
+      p_delta: 1,
+    });
+    if (rpcIncErr) console.error("Fehler beim Hochzählen (RPC):", rpcIncErr);
 
     toast.success("Eintrag erfolgreich");
     setSelectedUserId("");
     refetch();
   };
 
+  // ❌ Spieler austragen
   const handleRemove = async (gameDay: string, userId: string) => {
     const { error } = await supabase
       .from("wash_duties")
@@ -147,61 +144,33 @@ const WashList = () => {
       return;
     }
 
-    // Waschzähler -1
-    const { data: currentProfile } = await supabase
-      .from("profiles")
-      .select("wash_count")
-      .eq("user_id", userId)
-      .single();
-
-    if (currentProfile) {
-      await supabase
-        .from("profiles")
-        .update({
-          wash_count: Math.max(0, (currentProfile.wash_count || 0) - 1),
-        })
-        .eq("user_id", userId);
-    }
+    // ✅ RPC: wash_count -1
+    const { error: rpcDecErr } = await supabase.rpc("inc_wash_count", {
+      p_user_id: userId,
+      p_delta: -1,
+    });
+    if (rpcDecErr) console.error("Fehler beim Runterzählen (RPC):", rpcDecErr);
 
     toast.success("Eintrag entfernt");
     refetch();
   };
 
-  // ❌ Admin löscht gesamten Spieltag (ohne Nachfrage)
+  // 🗑️ Admin löscht Spieltag
   const handleDeleteGameDay = async (gameDay: string) => {
-    // Alle betroffenen Spieler laden
-    const { data: dutiesToDelete, error: selectError } = await supabase
+    const { data: dutiesToDelete } = await supabase
       .from("wash_duties")
       .select("assigned_to")
       .eq("game_day", gameDay);
 
-    if (selectError) {
-      console.error("Fehler beim Abrufen vor Löschung:", selectError);
-      toast.error("Fehler beim Löschen des Spieltags");
-      return;
-    }
-
-    // Waschzähler aller betroffenen Spieler reduzieren
     for (const duty of dutiesToDelete || []) {
       if (duty.assigned_to) {
-        const { data: currentProfile } = await supabase
-          .from("profiles")
-          .select("wash_count")
-          .eq("user_id", duty.assigned_to)
-          .single();
-
-        if (currentProfile) {
-          await supabase
-            .from("profiles")
-            .update({
-              wash_count: Math.max(0, (currentProfile.wash_count || 0) - 1),
-            })
-            .eq("user_id", duty.assigned_to);
-        }
+        await supabase.rpc("inc_wash_count", {
+          p_user_id: duty.assigned_to,
+          p_delta: -1,
+        });
       }
     }
 
-    // Spieltag löschen
     const { error } = await supabase
       .from("wash_duties")
       .delete()

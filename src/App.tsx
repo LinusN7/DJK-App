@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import Auth from "./pages/Auth";
 import Games from "./pages/Games";
+import GameDetails from "./pages/GameDetails";
 import Lists from "./pages/Lists";
 import Players from "./pages/Players";
 import Profile from "./pages/Profile";
@@ -80,6 +81,13 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route 
+              path="/games/:id"
+              element={
+              <GameDetails />
+              } 
+            />
+
             <Route
               path="/lists"
               element={

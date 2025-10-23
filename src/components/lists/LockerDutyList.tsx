@@ -6,8 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, X } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Plus, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
@@ -18,14 +24,14 @@ const LockerDutyList = () => {
   const [endDate, setEndDate] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<string>("");
 
-  // Kabinendienste abrufen
+  // 🔹 Kabinendienste abrufen
   const { data: lockerDuties, refetch } = useQuery({
     queryKey: ["locker-duties"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("locker_duties")
         .select("*")
-        .order("start_date", { ascending: true });
+        .order("start_date", { ascending: false });
 
       if (error) throw error;
 
@@ -33,17 +39,18 @@ const LockerDutyList = () => {
       const { data: profiles } = await supabase
         .from("profiles")
         .select("user_id, full_name")
-        .in("user_id", userIds);
+        .in("user_id", userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"]);
 
       const profileMap = new Map(profiles?.map((p) => [p.user_id, p]) || []);
+
       return data.map((duty) => ({
         ...duty,
-        profile: profileMap.get(duty.assigned_to),
+        profile: duty.assigned_to ? profileMap.get(duty.assigned_to) : null,
       }));
     },
   });
 
-  // alle Spieler laden (für Admins)
+  // 🔹 Spieler abrufen (für Admin-Auswahl)
   const { data: allPlayers } = useQuery({
     queryKey: ["all-players-locker"],
     queryFn: async () => {
@@ -57,10 +64,20 @@ const LockerDutyList = () => {
     enabled: isAdmin,
   });
 
-  // Neuen Zeitraum hinzufügen
+  // 🔹 Wochenliste gruppieren
+  const weeks = [
+    ...new Map(
+      lockerDuties?.map((d) => [
+        `${d.start_date}-${d.end_date}`,
+        { start: d.start_date, end: d.end_date },
+      ]) || []
+    ).values(),
+  ];
+
+  // ➕ Woche hinzufügen
   const handleAddWeek = async () => {
     if (!startDate || !endDate) {
-      toast.error("Bitte Start- und Enddatum eingeben");
+      toast.error("Bitte Start- und Enddatum angeben");
       return;
     }
 
@@ -69,86 +86,70 @@ const LockerDutyList = () => {
       return;
     }
 
-    const id = `${startDate}_${endDate}`;
-
-    // prüfen, ob der Zeitraum schon existiert
-    const { data: existing, error: checkError } = await supabase
+    const { data: existing } = await supabase
       .from("locker_duties")
       .select("id")
-      .eq("id", id)
+      .eq("start_date", startDate)
+      .eq("end_date", endDate)
       .limit(1);
 
-    if (checkError) {
-      console.error("Fehler bei Prüfung:", checkError);
-      toast.error("Fehler beim Überprüfen");
-      return;
-    }
-
     if (existing && existing.length > 0) {
-      toast.error("Dieser Zeitraum existiert bereits");
+      toast.error("Diese Woche existiert bereits");
       return;
     }
 
     const { error } = await supabase.from("locker_duties").insert([
-      {
-        id,
-        start_date: startDate,
-        end_date: endDate,
-        assigned_to: null,
-      },
+      { start_date: startDate, end_date: endDate, assigned_to: null },
+      { start_date: startDate, end_date: endDate, assigned_to: null },
+      { start_date: startDate, end_date: endDate, assigned_to: null },
     ]);
 
     if (error) {
       console.error("Fehler beim Hinzufügen:", error);
-      toast.error("Fehler beim Hinzufügen");
+      toast.error("Fehler beim Hinzufügen der Woche");
       return;
     }
 
-    toast.success("Zeitraum hinzugefügt");
+    toast.success("Woche hinzugefügt (3 freie Slots)");
     setStartDate("");
     setEndDate("");
     refetch();
   };
 
-  // Spieler eintragen (neuer Datensatz für denselben Zeitraum)
-  const handleAssign = async (duty: any, userId?: string) => {
+  // 👤 Spieler eintragen
+  const handleAssign = async (start: string, end: string, userId?: string) => {
     const targetUserId = userId || user!.id;
-    const id = duty.id;
 
-    // prüfen, ob Spieler bereits eingetragen ist
-    const { data: existing } = await supabase
+    const { data: alreadyIn } = await supabase
       .from("locker_duties")
-      .select("assigned_to")
-      .eq("id", id)
-      .eq("assigned_to", targetUserId)
-      .limit(1);
+      .select("id")
+      .eq("start_date", start)
+      .eq("end_date", end)
+      .eq("assigned_to", targetUserId);
 
-    if (existing && existing.length > 0) {
-      toast.error("Spieler ist bereits eingetragen");
+    if (alreadyIn && alreadyIn.length > 0) {
+      toast.error("Dieser Spieler ist bereits eingetragen");
       return;
     }
 
-    // prüfen, wie viele Spieler aktuell eingetragen sind
-    const { count } = await supabase
+    const { data: emptySlot, error: slotError } = await supabase
       .from("locker_duties")
-      .select("*", { count: "exact", head: true })
-      .eq("id", id)
-      .not("assigned_to", "is", null);
+      .select("id")
+      .eq("start_date", start)
+      .eq("end_date", end)
+      .is("assigned_to", null)
+      .limit(1)
+      .maybeSingle();
 
-    if (count && count >= 3) {
-      toast.error("Maximal 3 Spieler erlaubt");
+    if (slotError || !emptySlot) {
+      toast.error("Diese Woche ist bereits voll (3/3)");
       return;
     }
 
-    // neuen Eintrag hinzufügen
-    const { error } = await supabase.from("locker_duties").insert([
-      {
-        id,
-        start_date: duty.start_date,
-        end_date: duty.end_date,
-        assigned_to: targetUserId,
-      },
-    ]);
+    const { error } = await supabase
+      .from("locker_duties")
+      .update({ assigned_to: targetUserId })
+      .eq("id", emptySlot.id);
 
     if (error) {
       console.error("Fehler beim Eintragen:", error);
@@ -156,34 +157,24 @@ const LockerDutyList = () => {
       return;
     }
 
-    // Profil +1 Kabinendienst
-    const { data: currentProfile } = await supabase
-      .from("profiles")
-      .select("locker_duty_count")
-      .eq("user_id", targetUserId)
-      .single();
+    // ✅ RPC: locker_duty_count +1
+    const { error: rpcIncErr } = await supabase.rpc("inc_locker_duty_count", {
+      p_user_id: targetUserId,
+      p_delta: 1,
+    });
+    if (rpcIncErr) console.error("Fehler beim Hochzählen (RPC):", rpcIncErr);
 
-    if (currentProfile) {
-      await supabase
-        .from("profiles")
-        .update({
-          locker_duty_count: (currentProfile.locker_duty_count || 0) + 1,
-        })
-        .eq("user_id", targetUserId);
-    }
-
-    toast.success("Eintrag erfolgreich");
+    toast.success("Spieler eingetragen");
     setSelectedUserId("");
     refetch();
   };
 
-  // Spieler austragen
-  const handleRemove = async (duty: any, userId: string) => {
+  // ❌ Spieler austragen
+  const handleRemove = async (id: string, userId: string) => {
     const { error } = await supabase
       .from("locker_duties")
-      .delete()
-      .eq("id", duty.id)
-      .eq("assigned_to", userId);
+      .update({ assigned_to: null })
+      .eq("id", id);
 
     if (error) {
       console.error("Fehler beim Entfernen:", error);
@@ -191,58 +182,67 @@ const LockerDutyList = () => {
       return;
     }
 
-    // Profil -1 Kabinendienst
-    const { data: currentProfile } = await supabase
-      .from("profiles")
-      .select("locker_duty_count")
-      .eq("user_id", userId)
-      .single();
+    // ✅ RPC: locker_duty_count -1
+    const { error: rpcDecErr } = await supabase.rpc("inc_locker_duty_count", {
+      p_user_id: userId,
+      p_delta: -1,
+    });
+    if (rpcDecErr) console.error("Fehler beim Runterzählen (RPC):", rpcDecErr);
 
-    if (currentProfile) {
-      await supabase
-        .from("profiles")
-        .update({
-          locker_duty_count: Math.max(
-            0,
-            (currentProfile.locker_duty_count || 0) - 1
-          ),
-        })
-        .eq("user_id", userId);
-    }
-
-    toast.success("Eintrag entfernt");
+    toast.success("Spieler entfernt");
     refetch();
   };
 
-  // Gruppenbildung nach Zeitraum (id)
-  const grouped = Array.from(
-    lockerDuties?.reduce((acc: any, duty: any) => {
-      if (!acc.has(duty.id)) acc.set(duty.id, []);
-      acc.get(duty.id)!.push(duty);
-      return acc;
-    }, new Map()) || []
-  );
+  // 🗑️ Ganze Woche löschen
+  const handleDeleteWeek = async (start: string, end: string) => {
+    const { data: dutiesToDelete } = await supabase
+      .from("locker_duties")
+      .select("assigned_to")
+      .eq("start_date", start)
+      .eq("end_date", end);
+
+    for (const duty of dutiesToDelete || []) {
+      if (duty.assigned_to) {
+        await supabase.rpc("inc_locker_duty_count", {
+          p_user_id: duty.assigned_to,
+          p_delta: -1,
+        });
+      }
+    }
+
+    const { error } = await supabase
+      .from("locker_duties")
+      .delete()
+      .eq("start_date", start)
+      .eq("end_date", end);
+
+    if (error) {
+      console.error("Fehler beim Löschen:", error);
+      toast.error("Fehler beim Löschen der Woche");
+      return;
+    }
+
+    toast.success("Woche gelöscht");
+    refetch();
+  };
 
   return (
     <div className="space-y-4">
-      {/* Admin: neue Woche hinzufügen */}
       {isAdmin && (
         <Card>
-          <CardContent className="pt-6 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="start">Von</Label>
+          <CardContent className="pt-6 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Von</Label>
                 <Input
-                  id="start"
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="end">Bis</Label>
+              <div>
+                <Label>Bis</Label>
                 <Input
-                  id="end"
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
@@ -250,43 +250,66 @@ const LockerDutyList = () => {
               </div>
             </div>
             <Button onClick={handleAddWeek} className="w-full">
-              <Plus className="h-4 w-4 mr-2" /> Woche hinzufügen
+              <Plus className="h-4 w-4 mr-2" />
+              Woche hinzufügen
             </Button>
           </CardContent>
         </Card>
       )}
 
-      {/* Liste */}
-      {grouped.length === 0 ? (
+      {weeks.length === 0 ? (
         <Card>
-          <CardContent className="pt-6">
-            <p className="text-center text-muted-foreground">
-              Noch keine Kabinendienste eingetragen
-            </p>
+          <CardContent className="pt-6 text-center text-muted-foreground">
+            Noch keine Wochen eingetragen
           </CardContent>
         </Card>
       ) : (
-        grouped.map(([id, duties]) => (
-          <Card key={id}>
-            <CardContent className="pt-6">
-              <h3 className="font-semibold mb-3">
-                {format(new Date(duties[0].start_date), "PP", { locale: de })} –{" "}
-                {format(new Date(duties[0].end_date), "PP", { locale: de })}
-              </h3>
+        weeks.map((week) => {
+          const duties =
+            lockerDuties?.filter(
+              (d) =>
+                d.start_date === week.start &&
+                d.end_date === week.end &&
+                d.assigned_to !== null
+            ) || [];
 
-              {duties
-                .filter((d: any) => d.assigned_to)
-                .map((duty: any) => (
+          const canAssign = duties.length < 3;
+
+          return (
+            <Card key={`${week.start}-${week.end}`}>
+              <CardContent className="pt-6">
+                <div className="flex justify-between items-center mb-3">
+                  <div>
+                    <h3 className="font-semibold">
+                      {format(new Date(week.start), "PP", { locale: de })} –{" "}
+                      {format(new Date(week.end), "PP", { locale: de })}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {duties.length}/3 Spieler eingetragen
+                    </p>
+                  </div>
+                  {isAdmin && (
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => handleDeleteWeek(week.start, week.end)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+
+                {duties.map((duty) => (
                   <div
-                    key={duty.assigned_to}
-                    className="flex items-center justify-between text-sm mb-1"
+                    key={duty.id}
+                    className="flex items-center justify-between text-sm mb-2"
                   >
                     <span>🚪 {duty.profile?.full_name || "Unbekannt"}</span>
                     {(duty.assigned_to === user?.id || isAdmin) && (
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleRemove(duty, duty.assigned_to)}
+                        onClick={() => handleRemove(duty.id, duty.assigned_to)}
                       >
                         <X className="h-3 w-3" />
                       </Button>
@@ -294,63 +317,56 @@ const LockerDutyList = () => {
                   </div>
                 ))}
 
-              {duties.filter((d: any) => d.assigned_to).length < 3 && (
-                <>
-                  {/* Spieler kann sich selbst eintragen */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full mt-2"
-                    onClick={() => handleAssign(duties[0])}
-                  >
-                    Selbst eintragen ({duties.filter((d: any) => d.assigned_to).length}/3)
-                  </Button>
+                {canAssign && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full mb-2"
+                      onClick={() => handleAssign(week.start, week.end)}
+                    >
+                      Selbst eintragen
+                    </Button>
 
-                  {/* Admin kann andere Spieler eintragen */}
-                  {isAdmin && (
-                    <div className="mt-3 space-y-2">
-                      <Select
-                        value={selectedUserId}
-                        onValueChange={setSelectedUserId}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Spieler auswählen" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {allPlayers?.map((player) => (
-                            <SelectItem
-                              key={player.user_id}
-                              value={player.user_id}
-                            >
-                              {player.full_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        size="sm"
-                        className="w-full"
-                        onClick={() =>
-                          selectedUserId &&
-                          handleAssign(duties[0], selectedUserId)
-                        }
-                        disabled={!selectedUserId}
-                      >
-                        Spieler eintragen
-                      </Button>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {duties.filter((d: any) => d.assigned_to).length >= 3 && (
-                <p className="text-sm text-muted-foreground text-center mt-2">
-                  Bereits voll belegt (3/3)
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        ))
+                    {isAdmin && (
+                      <div className="space-y-2">
+                        <Select
+                          value={selectedUserId}
+                          onValueChange={setSelectedUserId}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Spieler auswählen" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allPlayers?.map((player) => (
+                              <SelectItem
+                                key={player.user_id}
+                                value={player.user_id}
+                              >
+                                {player.full_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          size="sm"
+                          className="w-full"
+                          onClick={() =>
+                            selectedUserId &&
+                            handleAssign(week.start, week.end, selectedUserId)
+                          }
+                          disabled={!selectedUserId}
+                        >
+                          Spieler eintragen
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })
       )}
     </div>
   );
