@@ -8,35 +8,58 @@ import { Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import AddGameDialog from "@/components/games/AddGameDialog";
 import GameCard from "@/components/games/GameCard";
+import { toast } from "sonner";
 
 const Games = () => {
   const { isAdmin } = useAuth();
   const [addGameOpen, setAddGameOpen] = useState(false);
   const navigate = useNavigate();
 
-  const { data: games, refetch, isLoading } = useQuery({
-    queryKey: ["games"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("games")
-        .select("*")
-        .order("game_date", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-  });
+  
+  const {
+  data: games = [],  // 👈 hier setzen wir ein leeres Array als Standardwert
+  refetch,
+  isLoading,
+  isError,
+  error,
+} = useQuery<any[], Error>({  // 👈 das sagt TypeScript: games ist ein Array
+  queryKey: ["games"],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("games")
+      .select("*")
+      .order("game_date", { ascending: false });
+    if (error) throw error;
+    return data || [];  // 👈 falls Supabase kein Ergebnis liefert
+  },
+});
 
+
+  // 🟡 Ladezustand
   if (isLoading) {
     return (
-      <div className="container mx-auto p-4">
-        <p className="text-center text-muted-foreground">Lädt...</p>
+      <div className="container mx-auto p-6 text-center text-muted-foreground">
+        Lädt Spieltage ...
       </div>
     );
   }
 
+  // 🔴 Fehlerzustand
+  if (isError) {
+    return (
+      <div className="container mx-auto p-6 text-center text-red-500">
+        Fehler beim Laden: {(error as Error)?.message || "Unbekannter Fehler"}
+        <div className="mt-4">
+          <Button onClick={() => refetch()}>Erneut versuchen</Button>
+        </div>
+      </div>
+    );
+  }
+
+  // 🟢 Normaler Zustand
   return (
-    <div className="container mx-auto p-4 pb-20">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container mx-auto p-4 pb-24 space-y-6">
+      <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Spieltage</h1>
         {isAdmin && (
           <Button onClick={() => setAddGameOpen(true)}>
@@ -46,6 +69,7 @@ const Games = () => {
         )}
       </div>
 
+      {/* Spieleliste */}
       {games?.length === 0 ? (
         <Card>
           <CardContent className="pt-6 text-center text-muted-foreground">
@@ -53,23 +77,26 @@ const Games = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="grid gap-4">
           {games?.map((game) => (
-            <div
+            <Card
               key={game.id}
+              className="hover:bg-accent/50 cursor-pointer transition"
+              role="button"
               onClick={() => navigate(`/games/${game.id}`)}
-              className="cursor-pointer"
             >
               <GameCard game={game} onUpdate={refetch} />
-            </div>
+            </Card>
           ))}
         </div>
       )}
 
+      {/* Dialog zum Spiel hinzufügen */}
       <AddGameDialog
         open={addGameOpen}
         onOpenChange={setAddGameOpen}
         onSuccess={() => {
+          toast.success("Spiel erfolgreich hinzugefügt");
           refetch();
           setAddGameOpen(false);
         }}

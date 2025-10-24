@@ -1,18 +1,16 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface GameCardProps {
   game: any;
+  onUpdate?: () => void; // ✅ optional
 }
 
-const GameCard = ({ game }: GameCardProps) => {
-  const navigate = useNavigate();
-
+const GameCard = ({ game, onUpdate }: GameCardProps) => {
   // 🔹 Fahrer & Mitfahrer abrufen
   const { data: driversWithPassengers } = useQuery({
     queryKey: ["drivers", game.id],
@@ -43,14 +41,9 @@ const GameCard = ({ game }: GameCardProps) => {
   });
 
   return (
-    <Card
-      onClick={() => navigate(`/games/${game.id}`)}
-      className="cursor-pointer hover:shadow-md transition"
-    >
+    <Card className="cursor-pointer hover:shadow-md transition">
       <CardHeader>
-        <CardTitle className="text-xl font-semibold">
-          {game.opponent}
-        </CardTitle>
+        <CardTitle className="text-xl font-semibold">{game.opponent}</CardTitle>
         {game.game_date && (
           <p className="text-sm text-muted-foreground">
             {format(new Date(game.game_date), "PPP", { locale: de })}
@@ -59,7 +52,7 @@ const GameCard = ({ game }: GameCardProps) => {
       </CardHeader>
 
       <CardContent className="space-y-3">
-        {(!driversWithPassengers || driversWithPassengers.length === 0) ? (
+        {!driversWithPassengers || driversWithPassengers.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center">
             Noch keine Fahrer eingetragen
           </p>

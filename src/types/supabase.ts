@@ -154,10 +154,8 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string | null
-          email: string
           full_name: string | null
           locker_duty_count: number
-          role: string
           team: string | null
           team_id: string | null
           user_id: string
@@ -165,10 +163,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
-          email: string
           full_name?: string | null
           locker_duty_count?: number
-          role?: string
           team?: string | null
           team_id?: string | null
           user_id: string
@@ -176,10 +172,8 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
-          email?: string
           full_name?: string | null
           locker_duty_count?: number
-          role?: string
           team?: string | null
           team_id?: string | null
           user_id?: string
@@ -207,6 +201,21 @@ export type Database = {
         Update: {
           id?: string
           name?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          role: string
+          user_id: string
+        }
+        Insert: {
+          role?: string
+          user_id: string
+        }
+        Update: {
+          role?: string
+          user_id?: string
         }
         Relationships: []
       }
