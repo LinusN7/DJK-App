@@ -17,29 +17,29 @@ export type Database = {
       drivers: {
         Row: {
           created_at: string | null
-          departure_time: string
+          departure_location: string | null
+          departure_time: string | null
           game_id: string | null
           id: string
-          location: string
-          seats: number
+          seats_available: number | null
           user_id: string | null
         }
         Insert: {
           created_at?: string | null
-          departure_time: string
+          departure_location?: string | null
+          departure_time?: string | null
           game_id?: string | null
           id?: string
-          location: string
-          seats: number
+          seats_available?: number | null
           user_id?: string | null
         }
         Update: {
           created_at?: string | null
-          departure_time?: string
+          departure_location?: string | null
+          departure_time?: string | null
           game_id?: string | null
           id?: string
-          location?: string
-          seats?: number
+          seats_available?: number | null
           user_id?: string | null
         }
         Relationships: [
@@ -63,47 +63,55 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
-          game_date: string | null
+          game_date: string
           id: string
           opponent: string
         }
         Insert: {
           created_at?: string | null
           created_by?: string | null
-          game_date?: string | null
+          game_date: string
           id?: string
           opponent: string
         }
         Update: {
           created_at?: string | null
           created_by?: string | null
-          game_date?: string | null
+          game_date?: string
           id?: string
           opponent?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "games_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       locker_duties: {
         Row: {
           assigned_to: string | null
           created_at: string | null
-          end_date: string
+          end_date: string | null
           id: string
-          start_date: string
+          start_date: string | null
         }
         Insert: {
           assigned_to?: string | null
           created_at?: string | null
-          end_date: string
+          end_date?: string | null
           id?: string
-          start_date: string
+          start_date?: string | null
         }
         Update: {
           assigned_to?: string | null
           created_at?: string | null
-          end_date?: string
+          end_date?: string | null
           id?: string
-          start_date?: string
+          start_date?: string | null
         }
         Relationships: [
           {
@@ -117,19 +125,16 @@ export type Database = {
       }
       passengers: {
         Row: {
-          created_at: string | null
           driver_id: string | null
           id: string
           user_id: string | null
         }
         Insert: {
-          created_at?: string | null
           driver_id?: string | null
           id?: string
           user_id?: string | null
         }
         Update: {
-          created_at?: string | null
           driver_id?: string | null
           id?: string
           user_id?: string | null
@@ -154,8 +159,10 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string | null
+          email: string | null
           full_name: string | null
-          locker_duty_count: number
+          locker_duty_count: number | null
+          role: string | null
           team: string | null
           team_id: string | null
           user_id: string
@@ -163,8 +170,10 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          email?: string | null
           full_name?: string | null
-          locker_duty_count?: number
+          locker_duty_count?: number | null
+          role?: string | null
           team?: string | null
           team_id?: string | null
           user_id: string
@@ -172,8 +181,10 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          email?: string | null
           full_name?: string | null
-          locker_duty_count?: number
+          locker_duty_count?: number | null
+          role?: string | null
           team?: string | null
           team_id?: string | null
           user_id?: string
@@ -204,50 +215,50 @@ export type Database = {
         }
         Relationships: []
       }
-      user_roles: {
-        Row: {
-          role: string
-          user_id: string
-        }
-        Insert: {
-          role?: string
-          user_id: string
-        }
-        Update: {
-          role?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       wash_duties: {
         Row: {
-          assigned_by: string | null
           assigned_to: string | null
           created_at: string | null
           game_date: string | null
-          game_day: string
+          game_day: string | null
+          game_id: string | null
           id: string
           user_id: string | null
         }
         Insert: {
-          assigned_by?: string | null
           assigned_to?: string | null
           created_at?: string | null
           game_date?: string | null
-          game_day: string
+          game_day?: string | null
+          game_id?: string | null
           id?: string
           user_id?: string | null
         }
         Update: {
-          assigned_by?: string | null
           assigned_to?: string | null
           created_at?: string | null
           game_date?: string | null
-          game_day?: string
+          game_day?: string | null
+          game_id?: string | null
           id?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "wash_duties_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wash_duties_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
     }
     Views: {
@@ -255,6 +266,7 @@ export type Database = {
     }
     Functions: {
       delete_user_and_data: { Args: never; Returns: undefined }
+      has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
       inc_locker_duty_count: {
         Args: { p_delta: number; p_user_id: string }
         Returns: undefined

@@ -3,9 +3,15 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import AddWashDutyDialog from "@/components/lists/AddWashDutyDialog";
 import { Card, CardContent } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Plus, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -13,9 +19,8 @@ import { de } from "date-fns/locale";
 
 const WashList = () => {
   const { user, isAdmin } = useAuth();
-  const [newGameDay, setNewGameDay] = useState("");
-  const [newGameDate, setNewGameDate] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
 
   // 🔹 Waschdienste abrufen
   const { data: washDuties, refetch } = useQuery({
@@ -35,14 +40,14 @@ const WashList = () => {
         .in("user_id", userIds.length ? userIds : ["00000000-0000-0000-0000-000000000000"]);
 
       const profileMap = new Map(profiles?.map((p) => [p.user_id, p]) || []);
-      return data.map((duty) => ({
+      return data.map((duty: any) => ({
         ...duty,
         profile: duty.assigned_to ? profileMap.get(duty.assigned_to) : null,
       }));
     },
   });
 
-  // 🔹 Spieler abrufen
+  // 🔹 Spieler abrufen (für Admin-Auswahl)
   const { data: allPlayers } = useQuery({
     queryKey: ["all-players"],
     queryFn: async () => {
@@ -56,49 +61,13 @@ const WashList = () => {
     enabled: isAdmin,
   });
 
-  // ➕ Spieltag hinzufügen
-  const handleAddGameDay = async () => {
-    if (!newGameDay.trim() || !newGameDate) {
-      toast.error("Bitte Spieltag und Datum angeben");
-      return;
-    }
-
-    const gameDay = newGameDay.trim();
-
-    const { data: existing } = await supabase
-      .from("wash_duties")
-      .select("id")
-      .eq("game_day", gameDay)
-      .limit(1);
-
-    if (existing && existing.length > 0) {
-      toast.error("Spieltag existiert bereits");
-      return;
-    }
-
-    const { error } = await supabase
-      .from("wash_duties")
-      .insert([{ game_day: gameDay, game_date: newGameDate }]);
-
-    if (error) {
-      console.error("Fehler beim Hinzufügen:", error);
-      toast.error("Fehler beim Hinzufügen des Spieltags");
-      return;
-    }
-
-    toast.success("Spieltag hinzugefügt");
-    setNewGameDay("");
-    setNewGameDate("");
-    refetch();
-  };
-
   // 👤 Spieler eintragen
   const handleAssign = async (gameDay: string, userId?: string) => {
     const targetUserId = userId || user!.id;
 
     const { data: existing } = await supabase
       .from("wash_duties")
-      .select("*")
+      .select("id")
       .eq("game_day", gameDay)
       .not("assigned_to", "is", null)
       .limit(1);
@@ -186,27 +155,22 @@ const WashList = () => {
     refetch();
   };
 
+  // 🔹 UI
   return (
     <div className="space-y-4">
       {isAdmin && (
-        <Card>
-          <CardContent className="pt-6 space-y-3">
-            <Input
-              placeholder="Spieltag (z.B. 15. Spieltag)"
-              value={newGameDay}
-              onChange={(e) => setNewGameDay(e.target.value)}
-            />
-            <Input
-              type="date"
-              value={newGameDate}
-              onChange={(e) => setNewGameDate(e.target.value)}
-            />
-            <Button onClick={handleAddGameDay} className="w-full">
-              <Plus className="h-4 w-4 mr-2" />
-              Spieltag hinzufügen
-            </Button>
-          </CardContent>
-        </Card>
+        <>
+          <Button className="w-full" onClick={() => setAddDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Neuen Waschdienst hinzufügen
+          </Button>
+
+          <AddWashDutyDialog
+            open={addDialogOpen}
+            onOpenChange={setAddDialogOpen}
+            onSuccess={refetch}
+          />
+        </>
       )}
 
       {(!washDuties || washDuties.length === 0) ? (
@@ -216,7 +180,7 @@ const WashList = () => {
           </CardContent>
         </Card>
       ) : (
-        washDuties.map((duty) => (
+        washDuties.map((duty: any) => (
           <Card key={duty.id}>
             <CardContent className="pt-6">
               <div className="flex justify-between items-center mb-3">
@@ -273,7 +237,7 @@ const WashList = () => {
                           <SelectValue placeholder="Spieler auswählen" />
                         </SelectTrigger>
                         <SelectContent>
-                          {allPlayers?.map((player) => (
+                          {allPlayers?.map((player: any) => (
                             <SelectItem
                               key={player.user_id}
                               value={player.user_id}

@@ -34,8 +34,8 @@ const Players = () => {
       if (profilesError) throw profilesError;
 
       const { data: rolesData, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role')
+        .from('profiles')
+        .select('user_id')
         .eq('role', 'admin');
 
       if (rolesError) throw rolesError;
@@ -66,18 +66,17 @@ const Players = () => {
       if (currentlyAdmin) {
         // Admin -> Player
         const { error } = await supabase
-          .from('user_roles')
+          .from('profiles')
           .update({ role: 'player' })
           .eq('user_id', userId);
-
         if (error) throw error;
         toast.success('Admin-Rechte entfernt');
       } else {
         // Player -> Admin (idempotent durch onConflict)
         const { error } = await supabase
-          .from('user_roles')
-          .upsert({ user_id: userId, role: 'admin' }, { onConflict: 'user_id' });
-
+          .from('profiles')
+          .update({ role: 'admin' })
+          .eq('user_id', userId);
         if (error) throw error;
         toast.success('Admin-Rechte erteilt');
       }

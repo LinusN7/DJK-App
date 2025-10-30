@@ -1,99 +1,38 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { toast } from "sonner";
-import { z } from "zod";
+import { Card, CardContent } from "@/components/ui/card";
+import { useQuery } from "@tanstack/react-query";
 
-const loginSchema = z.object({
-  email: z.string().email({ message: "Bitte gib eine gültige E-Mail-Adresse ein" }),
-  password: z.string().min(6, { message: "Passwort muss mindestens 6 Zeichen lang sein" }),
-});
-
+// ✅ Zod-Schema für Validierung
 const signupSchema = z.object({
-  email: z.string().email({ message: "Bitte gib eine gültige E-Mail-Adresse ein" }),
-  password: z.string().min(6, { message: "Passwort muss mindestens 6 Zeichen lang sein" }),
-  fullName: z.string().min(2, { message: "Name muss mindestens 2 Zeichen lang sein" }),
+  email: z.string().email("Bitte gib eine gültige E-Mail ein"),
+  password: z.string().min(6, "Passwort muss mindestens 6 Zeichen haben"),
+  fullName: z.string().min(2, "Name ist zu kurz"),
 });
 
 const Auth = () => {
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [tabValue, setTabValue] = useState("login");
-
+  const [tabValue, setTabValue] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [teamId, setTeamId] = useState("");
-  const [teams, setTeams] = useState<{ id: string; name: string }[]>([]);
+  const [teamId, setTeamId] = useState<string>("");
+  const [loading, setLoading] = useState(false);
 
-  // 📋 Teams Dropdown vorbereiten
-  useEffect(() => {
-    setTeams([
-      { id: "erste", name: "Erste" },
-      { id: "zweite", name: "Zweite" },
-      { id: "dritte", name: "Dritte" },
-    ]);
-  }, []);
-
-  // 🔑 Login
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    try {
-      const validated = loginSchema.parse({ email, password });
-      setLoading(true);
-
-      const { error } = await supabase.auth.signInWithPassword({
-        email: validated.email,
-        password: validated.password,
-      });
-
-      if (error) {
-        if (error.message.includes("Invalid login credentials")) {
-          toast.error("Ungültige E-Mail oder Passwort");
-        } else if (error.message.includes("Email not confirmed")) {
-          toast.error("Bitte bestätige zuerst deine E-Mail-Adresse");
-        } else {
-          toast.error(error.message);
-        }
-        return;
-      }
-
-      toast.success("Erfolgreich angemeldet!");
-      navigate("/");
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        toast.error(error.errors[0].message);
-      } else {
-        toast.error("Ein Fehler ist aufgetreten");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  // 🧩 Teams laden
+  const { data: teams } = useQuery({
+    queryKey: ["teams"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("teams").select("id, name").order("name");
+      if (error) { console.error("Teams-Query-Fehler:", error); }
+      console.log("Teams-Query-Daten:", data);
+      return data ?? [];
+    },
+  });
 
   // 🧾 Registrierung mit E-Mail-Bestätigung
   const handleSignup = async (e: React.FormEvent) => {
@@ -127,37 +66,32 @@ const Auth = () => {
       }
 
       // 2️⃣ Profil-Eintrag (Team & Name)
-      const selectedTeamName = teams.find((t) => t.id === teamId)?.name ?? "Unbekannt";
+      const selectedTeamName = teams?.find((t) => t.id === teamId)?.name ?? "Unbekannt";
 
-      if (data.user) {
-        // 🧩 Warte kurz, bis Session gesetzt ist
-        await new Promise((r) => setTimeout(r, 500));
+      const newUserId = data.user?.id ?? data.session?.user?.id;
 
-        // Profil erstellen
+      if (newUserId) {
+        console.log("🧩 Neuer Benutzer wird angelegt:", newUserId);
+
         const { error: profileError } = await supabase.from("profiles").insert([
           {
-            user_id: data.user.id,
+            user_id: newUserId,
             full_name: validated.fullName,
+            email: validated.email,
             team: selectedTeamName,
+            team_id: teamId,
+            role: "player",
           },
         ]);
 
         if (profileError) {
-          console.error("Fehler beim Erstellen des Profils:", profileError);
+          console.error("❌ Fehler beim Erstellen des Profils:", profileError);
         } else {
-          console.log("Profil erfolgreich erstellt für", validated.fullName);
+          console.log("✅ Profil erfolgreich erstellt für", validated.fullName);
         }
-
-        // Rolle setzen
-        const { error: roleError } = await supabase
-          .from("user_roles")
-          .insert({ user_id: data.user.id, role: "player" });
-
-        if (roleError) {
-          console.error("Fehler beim Setzen der Rolle:", roleError);
-        }
+      } else {
+        console.warn("⚠️ Kein user_id nach Signup vorhanden, Profil nicht angelegt.");
       }
-
 
       // 3️⃣ Hinweis anzeigen & Tab umschalten
       toast.success("Registrierung erfolgreich! Bitte bestätige deine E-Mail, bevor du dich einloggst.");
@@ -173,113 +107,117 @@ const Auth = () => {
     }
   };
 
-  // 🧱 UI
+  // 🔐 Login
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      toast.success("Erfolgreich eingeloggt!");
+    } catch (error: any) {
+      toast.error(error.message || "Login fehlgeschlagen");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // UI
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl text-center">Team Fußball App</CardTitle>
-          <CardDescription className="text-center">
-            Organisiere Fahrten, Listen und mehr
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={tabValue} onValueChange={setTabValue} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Anmelden</TabsTrigger>
-              <TabsTrigger value="signup">Registrieren</TabsTrigger>
-            </TabsList>
+    <div className="max-w-md mx-auto py-10">
+      <Card>
+        <CardContent className="space-y-4 pt-6">
+          <div className="flex justify-center mb-4">
+            <Button
+              variant={tabValue === "login" ? "default" : "outline"}
+              onClick={() => setTabValue("login")}
+              className="mr-2"
+            >
+              Login
+            </Button>
+            <Button
+              variant={tabValue === "signup" ? "default" : "outline"}
+              onClick={() => setTabValue("signup")}
+            >
+              Registrieren
+            </Button>
+          </div>
 
-            {/* 🔑 Login */}
-            <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">E-Mail</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="deine@email.de"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Passwort</Label>
-                  <Input
-                    id="login-password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Lädt..." : "Anmelden"}
-                </Button>
-              </form>
-            </TabsContent>
+          {tabValue === "login" ? (
+            <form onSubmit={handleLogin} className="space-y-3">
+              <div>
+                <Label htmlFor="email">E-Mail</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="password">Passwort</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Einloggen..." : "Login"}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleSignup} className="space-y-3">
+              <div>
+                <Label htmlFor="fullName">Vollständiger Name</Label>
+                <Input
+                  id="fullName"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">E-Mail</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="password">Passwort</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="team">Team</Label>
+                <select
+                  id="team"
+                  className="w-full border rounded-md p-2"
+                  value={teamId}
+                  onChange={(e) => setTeamId(e.target.value)}
+                >
+                  <option value="">Team auswählen</option>
+                  {teams?.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            {/* 🧾 Registrierung */}
-            <TabsContent value="signup">
-              <form onSubmit={handleSignup} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-name">Vollständiger Name</Label>
-                  <Input
-                    id="signup-name"
-                    type="text"
-                    placeholder="Max Mustermann"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="team">Team</Label>
-                  <Select value={teamId} onValueChange={setTeamId} required>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Team auswählen" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {teams.map((team) => (
-                        <SelectItem key={team.id} value={team.id}>
-                          {team.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">E-Mail</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="deine@email.de"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Passwort</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Lädt..." : "Registrieren"}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Registriere..." : "Registrieren"}
+              </Button>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>

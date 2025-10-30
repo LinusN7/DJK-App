@@ -7,7 +7,7 @@ import { toast } from "sonner";
 
 interface GameCardProps {
   game: any;
-  onUpdate?: () => void; // ✅ optional
+  onUpdate?: () => void; // optionaler Refresh
 }
 
 const GameCard = ({ game, onUpdate }: GameCardProps) => {
@@ -19,9 +19,9 @@ const GameCard = ({ game, onUpdate }: GameCardProps) => {
         .from("drivers")
         .select(`
           id,
-          location,
+          departure_location,
           departure_time,
-          seats,
+          seats_available,
           profiles!drivers_user_id_fkey (full_name),
           passengers(
             id,
@@ -31,7 +31,7 @@ const GameCard = ({ game, onUpdate }: GameCardProps) => {
         .eq("game_id", game.id);
 
       if (error) {
-        console.error(error);
+        console.error("Fehler beim Laden der Fahrer:", error);
         toast.error("Fehler beim Laden der Fahrer");
         return [];
       }
@@ -57,7 +57,7 @@ const GameCard = ({ game, onUpdate }: GameCardProps) => {
             Noch keine Fahrer eingetragen
           </p>
         ) : (
-          driversWithPassengers.map((driver) => (
+          driversWithPassengers.map((driver: any) => (
             <div
               key={driver.id}
               className="border rounded-lg p-2 text-sm bg-gray-50"
@@ -66,8 +66,15 @@ const GameCard = ({ game, onUpdate }: GameCardProps) => {
                 🚗 {driver.profiles?.full_name || "Unbekannt"}
               </p>
               <p className="text-muted-foreground">
-                {driver.location} • {driver.departure_time} •{" "}
-                {driver.seats} zusätzlich verfügbare Sitzplätze
+                {driver.departure_location} •{" "}
+                {driver.departure_time
+                          ? `${driver.departure_time.slice(0, 5)} Uhr `
+                          : "–"}
+                •{" "}
+                <strong>
+                  {driver.seats_available}{" "}
+                  {driver.seats_available === 1 ? "verfügbarer Sitzplatz" : "verfügbare Sitzplätze"}
+                </strong>
               </p>
 
               {driver.passengers?.length > 0 && (

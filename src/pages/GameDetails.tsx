@@ -6,6 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Plus, Trash2, X, UserPlus, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -21,10 +28,13 @@ const GameDetails = () => {
   const [passengers, setPassengers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [addMode, setAddMode] = useState(false);
-  const [location, setLocation] = useState("");
-  const [time, setTime] = useState("");
-  const [seats, setSeats] = useState<number | "">("");
+  const [departureLocation, setDepartureLocation] = useState("");
+  const [departureTime, setDepartureTime] = useState("");
+  const [seatsAvailable, setSeatsAvailable] = useState<number | "">("");
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [allPlayers, setAllPlayers] = useState<any[]>([]);
 
+  // 📦 Spiel, Fahrer und Mitfahrer laden
   const fetchGameData = async () => {
     try {
       setLoading(true);
@@ -36,10 +46,7 @@ const GameDetails = () => {
         .eq("id", id)
         .single();
 
-      if (gameError || !gameData) {
-        throw new Error("Fehler beim Laden des Spiels");
-      }
-
+      if (gameError || !gameData) throw new Error("Fehler beim Laden des Spiels");
       setGame(gameData);
 
       // Fahrer abrufen
@@ -49,9 +56,9 @@ const GameDetails = () => {
           id,
           game_id,
           user_id,
-          location,
+          departure_location,
           departure_time,
-          seats,
+          seats_available,
           created_at,
           profiles!drivers_user_id_fkey (full_name)
         `)
@@ -59,10 +66,9 @@ const GameDetails = () => {
         .order("created_at", { ascending: true });
 
       if (driverError) throw new Error("Fehler beim Laden der Fahrer");
-
       setDrivers(driverData || []);
 
-      // Mitfahrer abrufen (abhängig von Fahrern)
+      // Mitfahrer abrufen
       if (driverData && driverData.length > 0) {
         const { data: passengerData, error: passengerError } = await supabase
           .from("passengers")
@@ -87,13 +93,24 @@ const GameDetails = () => {
     }
   };
 
+  // 🔹 Spieler abrufen (nur für Admin)
+  const fetchAllPlayers = async () => {
+    if (!isAdmin) return;
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("user_id, full_name")
+      .order("full_name");
+    if (!error && data) setAllPlayers(data);
+  };
+
   useEffect(() => {
     if (id) fetchGameData();
-  }, [id]);
+    if (isAdmin) fetchAllPlayers();
+  }, [id, isAdmin]);
 
   // 🚗 Fahrer hinzufügen
   const handleAddDriver = async () => {
-    if (!location.trim() || !time.trim() || seats === "") {
+    if (!departureLocation.trim() || !departureTime.trim() || seatsAvailable === "") {
       toast.error("Bitte alle Felder ausfüllen");
       return;
     }
@@ -107,18 +124,18 @@ const GameDetails = () => {
         {
           game_id: id,
           user_id: user.id,
-          location: location.trim(),
-          departure_time: time,
-          seats: Number(seats),
+          departure_location: departureLocation.trim(),
+          departure_time: departureTime,
+          seats_available: Number(seatsAvailable),
         },
       ]);
       if (error) throw error;
 
       toast.success("Fahrer hinzugefügt");
       setAddMode(false);
-      setLocation("");
-      setTime("");
-      setSeats("");
+      setDepartureLocation("");
+      setDepartureTime("");
+      setSeatsAvailable("");
       await fetchGameData();
     } catch (err) {
       console.error(err);
@@ -139,16 +156,18 @@ const GameDetails = () => {
     }
   };
 
-  // 🧍‍♂️ Mitfahrer hinzufügen
-  const handleAddPassenger = async (driverId: string) => {
+  // 🧍‍♂️ Mitfahrer hinzufügen (jetzt auch Admin mit Auswahl)
+  const handleAddPassenger = async (driverId: string, customUserId?: string) => {
     if (!user) {
       toast.error("Bitte zuerst anmelden");
       return;
     }
 
-    const alreadyPassenger = passengers.find((p) => p.user_id === user.id);
+    const targetUserId = customUserId || user.id;
+
+    const alreadyPassenger = passengers.find((p) => p.user_id === targetUserId);
     if (alreadyPassenger) {
-      toast.error("Du bist bereits Mitfahrer");
+      toast.error("Dieser Spieler ist bereits Mitfahrer");
       return;
     }
 
@@ -158,24 +177,26 @@ const GameDetails = () => {
       return;
     }
 
-    if (driver.seats <= 0) {
+    if (driver.seats_available <= 0) {
       toast.error("Keine Sitzplätze mehr verfügbar");
       return;
     }
 
     try {
-      const { error: insertError } = await supabase.from("passengers").insert([
-        { driver_id: driverId, user_id: user.id },
-      ]);
+      const { error: insertError } = await supabase
+        .from("passengers")
+        .insert([{ driver_id: driverId, user_id: targetUserId }]);
       if (insertError) throw insertError;
 
+      // 🧮 Sitzplätze per RPC-Funktion verringern
       const { error: rpcError } = await supabase.rpc("update_driver_seats", {
         p_driver_id: driverId,
         p_delta: -1,
       });
       if (rpcError) console.error("Fehler beim Reduzieren der Sitzplätze:", rpcError);
 
-      toast.success("Du bist jetzt Mitfahrer");
+      toast.success("Mitfahrer hinzugefügt");
+      setSelectedUserId("");
       await fetchGameData();
     } catch (err) {
       console.error(err);
@@ -183,19 +204,20 @@ const GameDetails = () => {
     }
   };
 
-  // ❌ Mitfahrer austragen
+  // ❌ Mitfahrer austragen (Admin darf alle löschen)
   const handleRemovePassenger = async (passengerId: string, driverId: string) => {
     try {
       const { error } = await supabase.from("passengers").delete().eq("id", passengerId);
       if (error) throw error;
 
+      // 🧮 Sitzplätze per RPC-Funktion erhöhen
       const { error: rpcError } = await supabase.rpc("update_driver_seats", {
         p_driver_id: driverId,
         p_delta: 1,
       });
       if (rpcError) console.error("Fehler beim Erhöhen der Sitzplätze:", rpcError);
 
-      toast.success("Du wurdest als Mitfahrer entfernt");
+      toast.success("Mitfahrer entfernt");
       await fetchGameData();
     } catch (err) {
       console.error(err);
@@ -203,7 +225,7 @@ const GameDetails = () => {
     }
   };
 
-  // 🗑️ Spiel löschen (nur Admin)
+  // 🗑️ Spiel löschen
   const handleDeleteGame = async () => {
     try {
       const { error } = await supabase.from("games").delete().eq("id", id);
@@ -218,11 +240,19 @@ const GameDetails = () => {
 
   // 📦 Render
   if (loading) {
-    return <div className="container mx-auto p-4 text-center text-muted-foreground">Lädt Spielinformationen...</div>;
+    return (
+      <div className="container mx-auto p-4 text-center text-muted-foreground">
+        Lädt Spielinformationen...
+      </div>
+    );
   }
 
   if (!game) {
-    return <div className="container mx-auto p-4 text-center text-muted-foreground">Spiel nicht gefunden</div>;
+    return (
+      <div className="container mx-auto p-4 text-center text-muted-foreground">
+        Spiel nicht gefunden
+      </div>
+    );
   }
 
   return (
@@ -256,25 +286,42 @@ const GameDetails = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           {drivers.length === 0 ? (
-            <p className="text-muted-foreground text-center">Noch keine Fahrer eingetragen</p>
+            <p className="text-muted-foreground text-center">
+              Noch keine Fahrer eingetragen
+            </p>
           ) : (
             drivers.map((driver) => {
               const driverPassengers = passengers.filter((p) => p.driver_id === driver.id);
-              const currentPassenger = driverPassengers.find((p) => p.user_id === user?.id);
+              const currentPassenger = driverPassengers.find(
+                (p) => p.user_id === user?.id
+              );
 
               return (
                 <div key={driver.id} className="border rounded-lg p-3 space-y-2 bg-gray-50">
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="font-semibold">🚗 {driver.profiles?.full_name || "Unbekannt"}</p>
+                      <p className="font-semibold">
+                        🚗 {driver.profiles?.full_name || "Unbekannt"}
+                      </p>
                       <p className="text-muted-foreground text-sm">
-                        {driver.location} • {driver.departure_time} •{" "}
-                        <strong>{driver.seats} Sitzplätze frei</strong>
+                        {driver.departure_location} •{" "}
+                        {driver.departure_time
+                          ? `${driver.departure_time.slice(0, 5)} Uhr `
+                          : "–"}
+                        •{" "}
+                        <strong>
+                          {driver.seats_available}{" "}
+                          {driver.seats_available === 1 ? "verfügbarer Sitzplatz" : "verfügbare Sitzplätze"}
+                        </strong>
                       </p>
                     </div>
 
                     {(isAdmin || driver.user_id === user?.id) && (
-                      <Button variant="ghost" size="sm" onClick={() => handleRemoveDriver(driver.id)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveDriver(driver.id)}
+                      >
                         <X className="h-4 w-4" />
                       </Button>
                     )}
@@ -285,7 +332,7 @@ const GameDetails = () => {
                       {driverPassengers.map((p) => (
                         <li key={p.id}>
                           {p.profiles?.full_name || "Unbekannt"}
-                          {p.user_id === user?.id && (
+                          {(p.user_id === user?.id || isAdmin) && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -300,11 +347,58 @@ const GameDetails = () => {
                     </ul>
                   )}
 
-                  {!currentPassenger && driver.user_id !== user?.id && driver.seats > 0 && (
-                    <Button variant="outline" size="sm" onClick={() => handleAddPassenger(driver.id)}>
-                      <UserPlus className="h-4 w-4 mr-2" />
-                      Als Mitfahrer eintragen
-                    </Button>
+                  {/* === Neue Logik: Mitfahrer hinzufügen === */}
+                  {driver.seats_available > 0 && (
+                    <>
+                      {/* Spieler: selbst eintragen */}
+                      {!currentPassenger && driver.user_id !== user?.id && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full mb-2"
+                          onClick={() => handleAddPassenger(driver.id)}
+                        >
+                          <UserPlus className="h-4 w-4 mr-2" />
+                          Selbst eintragen
+                        </Button>
+                      )}
+
+                      {/* Admin: Dropdown + Spieler eintragen */}
+                      {isAdmin && (
+                        <div className="space-y-2">
+                          <Select
+                            value={selectedUserId}
+                            onValueChange={setSelectedUserId}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Spieler auswählen" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {allPlayers?.map((player) => (
+                                <SelectItem
+                                  key={player.user_id}
+                                  value={player.user_id}
+                                >
+                                  {player.full_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          <Button
+                            size="sm"
+                            className="w-full"
+                            onClick={() =>
+                              selectedUserId &&
+                              handleAddPassenger(driver.id, selectedUserId)
+                            }
+                            disabled={!selectedUserId}
+                          >
+                            Spieler eintragen
+                          </Button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               );
@@ -320,25 +414,43 @@ const GameDetails = () => {
             <div className="space-y-3">
               <div className="space-y-1">
                 <Label>Abfahrtsort</Label>
-                <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="z.B. Vereinsheim" />
+                <Input
+                  value={departureLocation}
+                  onChange={(e) => setDepartureLocation(e.target.value)}
+                  placeholder="z.B. Vereinsheim"
+                />
               </div>
               <div className="space-y-1">
                 <Label>Abfahrtszeit</Label>
-                <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+                <Input
+                  type="time"
+                  value={departureTime}
+                  onChange={(e) => setDepartureTime(e.target.value)}
+                />
               </div>
               <div className="space-y-1">
                 <Label>Verfügbare Sitzplätze</Label>
                 <Input
                   type="number"
                   min="1"
-                  value={seats}
-                  onChange={(e) => setSeats(e.target.value ? Number(e.target.value) : "")}
+                  value={seatsAvailable}
+                  onChange={(e) =>
+                    setSeatsAvailable(e.target.value ? Number(e.target.value) : "")
+                  }
                   placeholder="z.B. 4"
                 />
               </div>
               <div className="flex gap-2">
-                <Button className="flex-1" onClick={handleAddDriver}>Speichern</Button>
-                <Button className="flex-1" variant="outline" onClick={() => setAddMode(false)}>Abbrechen</Button>
+                <Button className="flex-1" onClick={handleAddDriver}>
+                  Speichern
+                </Button>
+                <Button
+                  className="flex-1"
+                  variant="outline"
+                  onClick={() => setAddMode(false)}
+                >
+                  Abbrechen
+                </Button>
               </div>
             </div>
           )}

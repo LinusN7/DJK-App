@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import AddLockerDutyDialog from "@/components/lists/AddLockerDutyDialog";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
@@ -23,11 +24,15 @@ const LockerDutyList = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
 
-  // 🔹 Kabinendienste abrufen
+
+  // 🔹 Kabinendienste abrufen (sichtbar für ALLE)
   const { data: lockerDuties, refetch } = useQuery({
     queryKey: ["locker-duties"],
     queryFn: async () => {
+      // 👇 Hier KEINE Einschränkung auf Admins
       const { data, error } = await supabase
         .from("locker_duties")
         .select("*")
@@ -35,6 +40,7 @@ const LockerDutyList = () => {
 
       if (error) throw error;
 
+      // 👇 Profile laden für alle eingetragenen Spieler
       const userIds = [...new Set(data.map((d) => d.assigned_to).filter(Boolean))];
       const { data: profiles } = await supabase
         .from("profiles")
@@ -50,7 +56,7 @@ const LockerDutyList = () => {
     },
   });
 
-  // 🔹 Spieler abrufen (für Admin-Auswahl)
+  // 🔹 Spieler abrufen (nur für Admin-Auswahl nötig)
   const { data: allPlayers } = useQuery({
     queryKey: ["all-players-locker"],
     queryFn: async () => {
@@ -61,10 +67,10 @@ const LockerDutyList = () => {
       if (error) throw error;
       return data;
     },
-    enabled: isAdmin,
+    enabled: isAdmin, // 👈 nur Admin braucht diese Liste
   });
 
-  // 🔹 Wochenliste gruppieren
+  // 🔹 Wochen gruppieren
   const weeks = [
     ...new Map(
       lockerDuties?.map((d) => [
@@ -74,7 +80,7 @@ const LockerDutyList = () => {
     ).values(),
   ];
 
-  // ➕ Woche hinzufügen
+  // ➕ Woche hinzufügen (nur Admin)
   const handleAddWeek = async () => {
     if (!startDate || !endDate) {
       toast.error("Bitte Start- und Enddatum angeben");
@@ -113,10 +119,11 @@ const LockerDutyList = () => {
     toast.success("Woche hinzugefügt (3 freie Slots)");
     setStartDate("");
     setEndDate("");
+    setShowAddForm(false);
     refetch();
   };
 
-  // 👤 Spieler eintragen
+  // 👤 Spieler eintragen (auch Nicht-Admin)
   const handleAssign = async (start: string, end: string, userId?: string) => {
     const targetUserId = userId || user!.id;
 
@@ -128,11 +135,11 @@ const LockerDutyList = () => {
       .eq("assigned_to", targetUserId);
 
     if (alreadyIn && alreadyIn.length > 0) {
-      toast.error("Dieser Spieler ist bereits eingetragen");
+      toast.error("Du bist bereits eingetragen");
       return;
     }
 
-    const { data: emptySlot, error: slotError } = await supabase
+    const { data: emptySlot } = await supabase
       .from("locker_duties")
       .select("id")
       .eq("start_date", start)
@@ -141,7 +148,7 @@ const LockerDutyList = () => {
       .limit(1)
       .maybeSingle();
 
-    if (slotError || !emptySlot) {
+    if (!emptySlot) {
       toast.error("Diese Woche ist bereits voll (3/3)");
       return;
     }
@@ -157,19 +164,17 @@ const LockerDutyList = () => {
       return;
     }
 
-    // ✅ RPC: locker_duty_count +1
-    const { error: rpcIncErr } = await supabase.rpc("inc_locker_duty_count", {
+    await supabase.rpc("inc_locker_duty_count", {
       p_user_id: targetUserId,
       p_delta: 1,
     });
-    if (rpcIncErr) console.error("Fehler beim Hochzählen (RPC):", rpcIncErr);
 
-    toast.success("Spieler eingetragen");
+    toast.success("Eingetragen!");
     setSelectedUserId("");
     refetch();
   };
 
-  // ❌ Spieler austragen
+  // ❌ Austragen (auch Nicht-Admin)
   const handleRemove = async (id: string, userId: string) => {
     const { error } = await supabase
       .from("locker_duties")
@@ -177,23 +182,21 @@ const LockerDutyList = () => {
       .eq("id", id);
 
     if (error) {
-      console.error("Fehler beim Entfernen:", error);
-      toast.error("Fehler beim Entfernen");
+      console.error("Fehler beim Austragen:", error);
+      toast.error("Fehler beim Austragen");
       return;
     }
 
-    // ✅ RPC: locker_duty_count -1
-    const { error: rpcDecErr } = await supabase.rpc("inc_locker_duty_count", {
+    await supabase.rpc("inc_locker_duty_count", {
       p_user_id: userId,
       p_delta: -1,
     });
-    if (rpcDecErr) console.error("Fehler beim Runterzählen (RPC):", rpcDecErr);
 
-    toast.success("Spieler entfernt");
+    toast.success("Ausgetragen");
     refetch();
   };
 
-  // 🗑️ Ganze Woche löschen
+  // 🗑️ Ganze Woche löschen (nur Admin)
   const handleDeleteWeek = async (start: string, end: string) => {
     const { data: dutiesToDelete } = await supabase
       .from("locker_duties")
@@ -226,37 +229,26 @@ const LockerDutyList = () => {
     refetch();
   };
 
+  // 🔹 UI
   return (
     <div className="space-y-4">
       {isAdmin && (
-        <Card>
-          <CardContent className="pt-6 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Von</Label>
-                <Input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label>Bis</Label>
-                <Input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
-              </div>
-            </div>
-            <Button onClick={handleAddWeek} className="w-full">
-              <Plus className="h-4 w-4 mr-2" />
-              Woche hinzufügen
-            </Button>
-          </CardContent>
-        </Card>
+        <>
+          <Button className="w-full" onClick={() => setAddDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Woche hinzufügen
+          </Button>
+
+          <AddLockerDutyDialog
+            open={addDialogOpen}
+            onOpenChange={setAddDialogOpen}
+            onSuccess={refetch}
+          />
+        </>
       )}
 
+
+      {/* Wochenanzeige */}
       {weeks.length === 0 ? (
         <Card>
           <CardContent className="pt-6 text-center text-muted-foreground">

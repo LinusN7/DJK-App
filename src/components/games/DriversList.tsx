@@ -21,21 +21,21 @@ const DriversList = ({ gameId, onUpdate }: DriversListProps) => {
   const fetchDrivers = async () => {
     setLoading(true);
 
-  // Fahrer abrufen
-  const { data: driversData, error: driversError } = await supabase
-    .from("drivers")
-    .select(`
-      id,
-      game_id,
-      user_id,
-      location,
-      departure_time,
-      seats,
-      created_at,
-      profiles!drivers_user_id_fkey (full_name)
-    `)
-    .eq("game_id", gameId)
-    .order("created_at", { ascending: true });
+    // Fahrer abrufen
+    const { data: driversData, error: driversError } = await supabase
+      .from("drivers")
+      .select(`
+        id,
+        game_id,
+        user_id,
+        departure_location,
+        departure_time,
+        seats_available,
+        created_at,
+        profiles!drivers_user_id_fkey (full_name)
+      `)
+      .eq("game_id", gameId)
+      .order("created_at", { ascending: true });
 
     if (driversError) {
       console.error(driversError);
@@ -72,8 +72,7 @@ const DriversList = ({ gameId, onUpdate }: DriversListProps) => {
     // Fahrer mit Mitfahrern kombinieren
     const driverMap = driversData.map((driver) => ({
       ...driver,
-      passengers:
-        passengersData?.filter((p) => p.driver_id === driver.id) || [],
+      passengers: passengersData?.filter((p) => p.driver_id === driver.id) || [],
     }));
 
     setDrivers(driverMap);
@@ -102,20 +101,27 @@ const DriversList = ({ gameId, onUpdate }: DriversListProps) => {
 
     // Sitzplatz prüfen
     const driver = drivers.find((d) => d.id === driverId);
-    if (driver.passengers.length >= driver.seats) {
+    if (driver.passengers.length >= driver.seats_available) {
       toast.error("Keine Sitzplätze mehr verfügbar");
       return;
     }
 
-    const { error } = await supabase
+    const { error: insertError } = await supabase
       .from("passengers")
       .insert([{ driver_id: driverId, user_id: user.id }]);
 
-    if (error) {
-      console.error(error);
+    if (insertError) {
+      console.error(insertError);
       toast.error("Fehler beim Eintragen");
       return;
     }
+
+    // RPC: Sitzplätze reduzieren
+    const { error: rpcError } = await supabase.rpc("update_driver_seats", {
+      p_driver_id: driverId,
+      p_delta: -1,
+    });
+    if (rpcError) console.error("Fehler beim Reduzieren der Sitzplätze:", rpcError);
 
     toast.success("Du wurdest als Mitfahrer eingetragen 🚙");
     fetchDrivers();
@@ -123,7 +129,7 @@ const DriversList = ({ gameId, onUpdate }: DriversListProps) => {
   };
 
   // ❌ Austragen (Mitfahrer)
-  const handleLeave = async (passengerId: string) => {
+  const handleLeave = async (passengerId: string, driverId: string) => {
     const { error } = await supabase
       .from("passengers")
       .delete()
@@ -135,13 +141,20 @@ const DriversList = ({ gameId, onUpdate }: DriversListProps) => {
       return;
     }
 
+    // RPC: Sitzplätze erhöhen
+    const { error: rpcError } = await supabase.rpc("update_driver_seats", {
+      p_driver_id: driverId,
+      p_delta: 1,
+    });
+    if (rpcError) console.error("Fehler beim Erhöhen der Sitzplätze:", rpcError);
+
     toast.success("Du wurdest ausgetragen");
     fetchDrivers();
     onUpdate();
   };
 
   // 🧹 Admin entfernt Mitfahrer
-  const handleRemovePassenger = async (passengerId: string) => {
+  const handleRemovePassenger = async (passengerId: string, driverId: string) => {
     const { error } = await supabase
       .from("passengers")
       .delete()
@@ -152,6 +165,13 @@ const DriversList = ({ gameId, onUpdate }: DriversListProps) => {
       toast.error("Fehler beim Entfernen des Mitfahrers");
       return;
     }
+
+    // RPC: Sitzplätze erhöhen
+    const { error: rpcError } = await supabase.rpc("update_driver_seats", {
+      p_driver_id: driverId,
+      p_delta: 1,
+    });
+    if (rpcError) console.error("Fehler beim Erhöhen der Sitzplätze:", rpcError);
 
     toast.success("Mitfahrer entfernt");
     fetchDrivers();
@@ -177,7 +197,8 @@ const DriversList = ({ gameId, onUpdate }: DriversListProps) => {
                   🚗 {driver.profiles?.full_name || "Unbekannt"}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {driver.location} • {driver.departure_time} • {driver.seats} Sitzplätze
+                  {driver.departure_location} • {driver.departure_time} •{" "}
+                  {driver.seats_available} Sitzplätze
                 </p>
               </div>
             </div>
@@ -201,8 +222,8 @@ const DriversList = ({ gameId, onUpdate }: DriversListProps) => {
                         size="sm"
                         onClick={() =>
                           p.user_id === user?.id
-                            ? handleLeave(p.id)
-                            : handleRemovePassenger(p.id)
+                            ? handleLeave(p.id, driver.id)
+                            : handleRemovePassenger(p.id, driver.id)
                         }
                       >
                         <X className="h-3 w-3" />
@@ -214,15 +235,16 @@ const DriversList = ({ gameId, onUpdate }: DriversListProps) => {
             </div>
 
             {/* Mitfahrer hinzufügen */}
-            {currentPassenger === null && driver.passengers.length < driver.seats && (
-              <Button
-                size="sm"
-                className="w-full"
-                onClick={() => handleJoin(driver.id)}
-              >
-                Als Mitfahrer eintragen
-              </Button>
-            )}
+            {currentPassenger === null &&
+              driver.passengers.length < driver.seats_available && (
+                <Button
+                  size="sm"
+                  className="w-full"
+                  onClick={() => handleJoin(driver.id)}
+                >
+                  Als Mitfahrer eintragen
+                </Button>
+              )}
 
             {currentPassenger === driver.id && (
               <p className="text-xs text-center text-muted-foreground">
