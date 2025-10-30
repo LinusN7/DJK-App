@@ -76,9 +76,22 @@ export default function AddLockerDutyDialog({ open, onOpenChange, onSuccess }: A
             <Label>Bis</Label>
             <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>
-          <Button onClick={handleAdd} className="w-full" disabled={loading}>
-            {loading ? "Speichern..." : "Speichern"}
-          </Button>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Abbrechen
+            </Button>
+            <Button 
+              onClick={handleAdd} 
+              className="w-full bg-djk-green hover:bg-djk-green/90 text-white" 
+              disabled={loading}>
+              {loading ? "Lädt ..." : "Hinzufügen"}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

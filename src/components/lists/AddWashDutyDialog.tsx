@@ -57,33 +57,49 @@ export default function AddWashDutyDialog({ open, onOpenChange, onSuccess }: Add
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Neuen Waschdienst hinzufügen</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div>
-            <Label>Spieltag</Label>
-            <Input
-              placeholder="z. B. 15. Spieltag oder Gegnername"
-              value={gameDay}
-              onChange={(e) => setGameDay(e.target.value)}
-            />
-          </div>
-          <div>
-            <Label>Datum</Label>
-            <Input
-              type="date"
-              value={gameDate}
-              onChange={(e) => setGameDate(e.target.value)}
-            />
-          </div>
-          <Button onClick={handleAdd} className="w-full" disabled={loading}>
-            {loading ? "Speichern …" : "Speichern"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+<Dialog open={open} onOpenChange={onOpenChange}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Neuen Waschdienst hinzufügen</DialogTitle>
+    </DialogHeader>
+
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Spieltag</Label>
+        <Input
+          placeholder="z. B. 15. Spieltag oder Gegnername"
+          value={gameDay}
+          onChange={(e) => setGameDay(e.target.value)}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Datum</Label>
+        <Input
+          type="date"
+          value={gameDate}
+          onChange={(e) => setGameDate(e.target.value)}
+        />
+      </div>
+
+      <div className="flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => onOpenChange(false)}
+        >
+          Abbrechen
+        </Button>
+        <Button 
+          onClick={handleAdd} 
+          className="w-full bg-djk-green hover:bg-djk-green/90 text-white" 
+          disabled={loading}>
+          {loading ? "Lädt ..." : "Hinzufügen"}
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
+
   );
 }

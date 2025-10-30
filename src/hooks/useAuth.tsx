@@ -11,6 +11,7 @@ export const useAuth = () => {
   const [profile, setProfile] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   // -------------------------------------------------------------
   // Profil laden
@@ -87,14 +88,15 @@ export const useAuth = () => {
   // -------------------------------------------------------------
   // Logout
   // -------------------------------------------------------------
-  const signOut = async (onSignedOut?: () => void) => {
+  const signOut = async () => {
     try {
       await supabase.auth.signOut();
       setUser(null);
       setProfile(null);
       setIsAdmin(false);
 
-      if (onSignedOut) onSignedOut(); // ✅ Navigations-Callback aufrufen
+      // 🚀 Direkt zurück zur Login-Seite
+      navigate("/auth", { replace: true });
     } catch (error) {
       console.error("Fehler beim Abmelden:", error);
     }

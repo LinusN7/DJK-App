@@ -161,11 +161,14 @@ const WashList = () => {
     <div className="space-y-4">
       {isAdmin && (
         <>
-          <Button className="w-full" onClick={() => setAddDialogOpen(true)}>
+        <div className="flex justify-center">
+          <Button 
+            className="bg-djk-green hover:bg-djk-green/90 text-white" 
+            onClick={() => setAddDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Waschdienst hinzufügen
           </Button>
-
+        </div>
           <AddWashDutyDialog
             open={addDialogOpen}
             onOpenChange={setAddDialogOpen}
@@ -253,7 +256,7 @@ const WashList = () => {
                       </Select>
                       <Button
                         size="sm"
-                        className="w-full"
+                        className="w-full !bg-djk-green hover: !bg-djk-green/90 !text-white"
                         onClick={() =>
                           selectedUserId &&
                           handleAssign(duty.game_day, selectedUserId)

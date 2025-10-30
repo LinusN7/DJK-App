@@ -1,15 +1,15 @@
 import { Link, useLocation } from "react-router-dom";
-import { Car, ClipboardList, Users, User } from "lucide-react";
+import { Car, ClipboardList, Users, User, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const BottomNav = () => {
   const location = useLocation();
 
   const navItems = [
-    { path: "/games", label: "Carpool", icon: Car },
+    { path: "/games", label: "Carpool", icon: Car, flip: true },
     { path: "/lists", label: "Waschlisten", icon: ClipboardList },
     { path: "/players", label: "Kader", icon: Users },
-    { path: "/profile", label: "Profil", icon: User },
+    { path: "/profile", label: "Profil", icon: Settings },
   ];
 
   return (
@@ -26,11 +26,17 @@ const BottomNav = () => {
               className={cn(
                 "flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors duration-200",
                 isActive
-                  ? "text-djk-green"           // kräftiges Grün bei aktivem Reiter
-                  : "text-djk-green/60 hover:text-djk-green" // helleres Grün bei inaktiv
+                  ? "text-djk-green" // aktiver Reiter
+                  : "text-djk-green/60 hover:text-djk-green" // inaktiv + hover
               )}
             >
-              <Icon className="h-5 w-5" />
+              {/* 👇 Flip-Klasse hier eingefügt */}
+              <Icon
+                className={cn(
+                  "h-5 w-5",
+                  item.flip && "scale-x-[-1]" // horizontales Spiegeln
+                )}
+              />
               <span className="text-xs font-medium">{item.label}</span>
             </Link>
           );

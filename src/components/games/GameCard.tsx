@@ -67,9 +67,8 @@ const GameCard = ({ game, onUpdate }: GameCardProps) => {
               <p className="font-medium">
                 <div className="flex items-center gap-2">
                   <Car className="h-5 w-5 text-djk-green transform -scale-x-100" />
-                  <h2 className="text-lg font-semibold">{game.opponent}</h2>
+                  • {driver.profiles?.full_name || "Unbekannt"}
                 </div>
-                {driver.profiles?.full_name || "Unbekannt"}
               </p>
               <p className="text-muted-foreground">
                 {driver.departure_location} •{" "}

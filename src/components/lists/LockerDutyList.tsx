@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Brush } from "lucide-react";
+import { BroomIcon } from "../icons/BroomIcon";
 import AddLockerDutyDialog from "@/components/lists/AddLockerDutyDialog";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -235,10 +236,14 @@ const LockerDutyList = () => {
     <div className="space-y-4">
       {isAdmin && (
         <>
-          <Button className="w-full" onClick={() => setAddDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Woche hinzufügen
-          </Button>
+          <div className="flex justify-center">
+            <Button 
+              className="bg-djk-green hover:bg-djk-green/90 text-white" 
+              onClick={() => setAddDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Woche hinzufügen
+            </Button>
+          </div>
 
           <AddLockerDutyDialog
             open={addDialogOpen}
@@ -298,7 +303,7 @@ const LockerDutyList = () => {
                   className="flex items-center justify-between text-sm mb-2"
                 >
                   <span className="flex items-center gap-2">
-                    <Brush className="h-5 w-5 text-djk-green" />
+                    <BroomIcon className="h-5 w-5 text-djk-green" />
                     • {duty.profile?.full_name || "Unbekannt"}
                   </span>
                   {(duty.assigned_to === user?.id || isAdmin) && (
@@ -346,7 +351,7 @@ const LockerDutyList = () => {
                         </Select>
                         <Button
                           size="sm"
-                          className="w-full"
+                          className="w-full !bg-djk-green hover: !bg-djk-green/90 !text-white"
                           onClick={() =>
                             selectedUserId &&
                             handleAssign(week.start, week.end, selectedUserId)

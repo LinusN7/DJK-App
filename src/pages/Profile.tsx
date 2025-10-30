@@ -18,6 +18,27 @@ export default function Profile() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [teamName, setTeamName] = useState<string>("");
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name, email, team")
+        .eq("user_id", user?.id)
+        .single();
+
+      if (error) console.error("Fehler beim Laden des Profils:", error);
+      else {
+        setFullName(data.full_name);
+        setEmail(data.email);
+        setTeamName(data.team); // 🟢 hier laden wir das Team
+      }
+    };
+
+    if (user) fetchProfile();
+  }, [user]);
+
 
   // 🧠 Profil-Daten laden
   useEffect(() => {
@@ -115,15 +136,15 @@ export default function Profile() {
   }
 
   return (
-  <div className="relative min-h-screen flex flex-col items-center p-4 space-y-2 w-full">
+  <div className="container mx-auto p-4 pb-16">
     {/* Fixierter Header mit Logo */}
     <div className="w-full">
       <PageHeader title="Profil" />
     </div>
 
-    {/* Scrollbarer Inhaltsbereich */}
-    <div className="w-full space-y-6 pb-2">
-      <form onSubmit={handleSave} className="w-full space-y-3">
+    <div className="w-full space-y-4 pb-4">
+      <form onSubmit={handleSave} 
+        className="w-full space-y-3">
         <div className="space-y-2">
           <Label htmlFor="name">Name</Label>
           <Input
@@ -131,6 +152,17 @@ export default function Profile() {
             type="text"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="team">Team</Label>
+          <Input
+            id="team"
+            type="text"
+            value={teamName || "Kein Team zugewiesen"}
+            disabled
+            className="bg-gray-100 text-black cursor-not-allowed"
           />
         </div>
 
@@ -155,12 +187,18 @@ export default function Profile() {
           />
         </div>
 
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Speichern..." : "Änderungen speichern"}
-        </Button>
+        <div className="flex justify-center pb-20">
+          <Button 
+            type="submit" 
+            className="bg-djk-green hover:bg-djk-green/90 text-white" 
+            disabled={loading}>
+            {loading ? "Speichern..." : "Änderungen speichern"}
+          </Button>
+        </div>
       </form>
+    </div>
 
-      <div className="w-full flex flex-col gap-2">
+      <div className="w-full flex flex-col gap-3">
         <Button onClick={handleLogout} variant="outline" className="w-full">
           Abmelden
         </Button>
@@ -174,7 +212,6 @@ export default function Profile() {
           Account löschen
         </Button>
       </div>
-    </div>
   </div>
 );
 }

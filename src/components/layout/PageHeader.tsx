@@ -8,7 +8,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({ title }) => {
   return (
     <div className="relative w-full mt-0 mb-6 flex items-center justify-center">
       {/* Überschrift zentriert absolut in der Mitte */}
-      <h1 className="text-3xl font-bold tracking-tight text-center text-djk-green">
+      <h1 className="text-3xl font-bold tracking-tight text-center">
         {title}
       </h1>
 

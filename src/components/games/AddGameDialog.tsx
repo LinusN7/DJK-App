@@ -89,7 +89,10 @@ const AddGameDialog = ({ open, onOpenChange, onSuccess }: AddGameDialogProps) =>
             >
               Abbrechen
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button 
+              type="submit" 
+              className="w-full bg-djk-green hover:bg-djk-green/90 text-white" 
+              disabled={loading}>
               {loading ? "Lädt..." : "Hinzufügen"}
             </Button>
           </div>

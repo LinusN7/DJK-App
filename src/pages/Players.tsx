@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Shield, ShieldOff, Shirt, Brush } from 'lucide-react';
+import { BroomIcon } from "@/components/icons/BroomIcon";
 import { toast } from 'sonner';
 import PageHeader from "@/components/layout/PageHeader";
 
@@ -102,25 +103,37 @@ const Players = () => {
     <div className="container mx-auto p-4 pb-20">
       <PageHeader title="Kader" />
 
-
       <div className="space-y-3">
         {players?.map((player) => (
-          <Card key={player.user_id}>
+          <Card
+            key={player.user_id}
+            className={
+              player.user_id === user?.id
+                ? "bg-djk-green/5 border-djk-green" // ✅ leichter Grünton für eigenen Account
+                : ""
+            }
+          >
             <CardContent className="p-4">
               <div className="flex items-center gap-4">
                 <Avatar>
                   <AvatarImage src={player.avatar_url ?? undefined} />
                   <AvatarFallback>
                     {player.full_name
-                      ?.split(' ')
+                      ?.split(" ")
                       .map((n: string) => n[0])
-                      .join('') || '??'}
+                      .join("") || "??"}
                   </AvatarFallback>
                 </Avatar>
 
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold">{player.full_name || 'Unbekannt'}</h3>
+                    <h3
+                      className={`font-semibold ${
+                        player.user_id === user?.id ? "text-djk-green" : ""
+                      }`}
+                    >
+                      {player.full_name || "Unbekannt"}
+                    </h3>
                     {player.isAdmin && <Badge variant="secondary">Admin</Badge>}
                     {player.team && <Badge variant="outline">{player.team}</Badge>}
                   </div>
@@ -131,7 +144,7 @@ const Players = () => {
                       Gewaschen: {player.wash_count}x
                     </span>
                     <span className="flex items-center gap-1">
-                      <Brush className="h-5 w-5 text-djk-green" />
+                      <BroomIcon className="h-5 w-5 text-djk-green" />
                       Kabinendienst: {player.locker_duty_count}x
                     </span>
                   </div>
@@ -139,9 +152,15 @@ const Players = () => {
 
                 {isAdmin && player.user_id !== user?.id && (
                   <Button
-                    variant={player.isAdmin ? 'destructive' : 'outline'}
+                    variant={player.isAdmin ? "destructive" : "outline"}
                     size="sm"
                     onClick={() => toggleAdmin(player.user_id, player.isAdmin)}
+                    className={`flex items-center justify-center text-white 
+                      ${
+                        player.isAdmin
+                          ? "bg-red-500 hover:bg-red-600"
+                          : "bg-djk-green hover:bg-djk-green/90"
+                      }`}
                   >
                     {player.isAdmin ? (
                       <>
@@ -161,6 +180,7 @@ const Players = () => {
           </Card>
         ))}
       </div>
+
     </div>
   );
 };

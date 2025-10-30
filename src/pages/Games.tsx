@@ -65,7 +65,9 @@ const Games = () => {
 
       {isAdmin && (
         <div className="text-center">
-          <Button onClick={() => setAddGameOpen(true)}>
+          <Button 
+            className="bg-djk-green hover:bg-djk-green/90 text-white"
+            onClick={() => setAddGameOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Spieltag hinzufügen
           </Button>

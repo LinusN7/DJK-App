@@ -391,7 +391,7 @@ const GameDetails = () => {
 
                           <Button
                             size="sm"
-                            className="w-full"
+                            className="w-full mb-2 !bg-djk-green hover: !bg-djk-green/90 !text-white"
                             onClick={() =>
                               selectedUserId &&
                               handleAddPassenger(driver.id, selectedUserId)
@@ -410,7 +410,9 @@ const GameDetails = () => {
           )}
 
           {!addMode ? (
-            <Button className="w-full" onClick={() => setAddMode(true)}>
+            <Button 
+              className="w-full !bg-djk-green hover: !bg-djk-green/90 !text-white" 
+              onClick={() => setAddMode(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Als Fahrer anbieten
             </Button>
@@ -445,7 +447,9 @@ const GameDetails = () => {
                 />
               </div>
               <div className="flex gap-2">
-                <Button className="flex-1" onClick={handleAddDriver}>
+                <Button 
+                  className="flex-1  bg-djk-green hover:bg-djk-green/90 text-white" 
+                  onClick={handleAddDriver}>
                   Speichern
                 </Button>
                 <Button
