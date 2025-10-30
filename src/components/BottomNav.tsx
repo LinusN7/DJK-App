@@ -1,15 +1,15 @@
-import { Link, useLocation } from 'react-router-dom';
-import { Calendar, ClipboardList, Users, User } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Link, useLocation } from "react-router-dom";
+import { Car, ClipboardList, Users, User } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const BottomNav = () => {
   const location = useLocation();
 
   const navItems = [
-    { path: '/games', label: 'Spieltag', icon: Calendar },
-    { path: '/lists', label: 'Listen', icon: ClipboardList },
-    { path: '/players', label: 'Spieler', icon: Users },
-    { path: '/profile', label: 'Profil', icon: User },
+    { path: "/games", label: "Carpool", icon: Car },
+    { path: "/lists", label: "Waschlisten", icon: ClipboardList },
+    { path: "/players", label: "Kader", icon: Users },
+    { path: "/profile", label: "Profil", icon: User },
   ];
 
   return (
@@ -24,10 +24,10 @@ const BottomNav = () => {
               key={item.path}
               to={item.path}
               className={cn(
-                'flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors',
+                "flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors duration-200",
                 isActive
-                  ? 'text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? "text-djk-green"           // kräftiges Grün bei aktivem Reiter
+                  : "text-djk-green/60 hover:text-djk-green" // helleres Grün bei inaktiv
               )}
             >
               <Icon className="h-5 w-5" />

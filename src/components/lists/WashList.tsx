@@ -12,10 +12,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, X, Trash2 } from "lucide-react";
+import { Plus, X, Trash2, Shirt } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+
 
 const WashList = () => {
   const { user, isAdmin } = useAuth();
@@ -162,7 +163,7 @@ const WashList = () => {
         <>
           <Button className="w-full" onClick={() => setAddDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Neuen Waschdienst hinzufügen
+            Waschdienst hinzufügen
           </Button>
 
           <AddWashDutyDialog
@@ -205,7 +206,10 @@ const WashList = () => {
 
               {duty.assigned_to ? (
                 <div className="flex items-center justify-between text-sm mb-3">
-                  <span>🧺 {duty.profile?.full_name || "Unbekannt"}</span>
+                  <span className="flex items-center gap-1">
+                    <Shirt className="h-5 w-5 text-djk-green" />
+                    • {duty.profile?.full_name || "Unbekannt"}
+                  </span>
                   {(duty.assigned_to === user?.id || isAdmin) && (
                     <Button
                       variant="ghost"

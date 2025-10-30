@@ -4,6 +4,8 @@ import { de } from "date-fns/locale";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Car } from "lucide-react";
+
 
 interface GameCardProps {
   game: any;
@@ -63,7 +65,11 @@ const GameCard = ({ game, onUpdate }: GameCardProps) => {
               className="border rounded-lg p-2 text-sm bg-gray-50"
             >
               <p className="font-medium">
-                🚗 {driver.profiles?.full_name || "Unbekannt"}
+                <div className="flex items-center gap-2">
+                  <Car className="h-5 w-5 text-djk-green transform -scale-x-100" />
+                  <h2 className="text-lg font-semibold">{game.opponent}</h2>
+                </div>
+                {driver.profiles?.full_name || "Unbekannt"}
               </p>
               <p className="text-muted-foreground">
                 {driver.departure_location} •{" "}

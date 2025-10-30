@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Car } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -267,7 +268,7 @@ const GameDetails = () => {
           )}
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
           <Button variant="outline" size="sm" onClick={() => navigate("/games")}>
             ← Zurück zur Übersicht
           </Button>
@@ -301,7 +302,10 @@ const GameDetails = () => {
                   <div className="flex justify-between items-center">
                     <div>
                       <p className="font-semibold">
-                        🚗 {driver.profiles?.full_name || "Unbekannt"}
+                        <div className="flex items-center gap-2">
+                          <Car className="h-5 w-5 text-djk-green transform -scale-x-100" />
+                          • {driver.profiles?.full_name || "Unbekannt"}
+                        </div> 
                       </p>
                       <p className="text-muted-foreground text-sm">
                         {driver.departure_location} •{" "}

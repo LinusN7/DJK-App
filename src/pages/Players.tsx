@@ -5,8 +5,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Shield, ShieldOff } from 'lucide-react';
+import { Shield, ShieldOff, Shirt, Brush } from 'lucide-react';
 import { toast } from 'sonner';
+import PageHeader from "@/components/layout/PageHeader";
+
 
 type PlayerItem = {
   user_id: string;
@@ -98,7 +100,8 @@ const Players = () => {
 
   return (
     <div className="container mx-auto p-4 pb-20">
-      <h1 className="text-3xl font-bold mb-6">Spieler</h1>
+      <PageHeader title="Kader" />
+
 
       <div className="space-y-3">
         {players?.map((player) => (
@@ -123,8 +126,14 @@ const Players = () => {
                   </div>
 
                   <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
-                    <span>🧺 Gewaschen: {player.wash_count}x</span>
-                    <span>🚪 Kabinendienst: {player.locker_duty_count}x</span>
+                    <span className="flex items-center gap-1">
+                      <Shirt className="h-5 w-5 text-djk-green" />
+                      Gewaschen: {player.wash_count}x
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Brush className="h-5 w-5 text-djk-green" />
+                      Kabinendienst: {player.locker_duty_count}x
+                    </span>
                   </div>
                 </div>
 

@@ -57,6 +57,11 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+
+        // ✅ DJK Vereinsfarbe
+        djk: {
+          green: "#007A43",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

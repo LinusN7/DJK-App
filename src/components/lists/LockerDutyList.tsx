@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Brush } from "lucide-react";
 import AddLockerDutyDialog from "@/components/lists/AddLockerDutyDialog";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -292,21 +293,24 @@ const LockerDutyList = () => {
                 </div>
 
                 {duties.map((duty) => (
-                  <div
-                    key={duty.id}
-                    className="flex items-center justify-between text-sm mb-2"
-                  >
-                    <span>🚪 {duty.profile?.full_name || "Unbekannt"}</span>
-                    {(duty.assigned_to === user?.id || isAdmin) && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemove(duty.id, duty.assigned_to)}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
+                <div
+                  key={duty.id}
+                  className="flex items-center justify-between text-sm mb-2"
+                >
+                  <span className="flex items-center gap-2">
+                    <Brush className="h-5 w-5 text-djk-green" />
+                    • {duty.profile?.full_name || "Unbekannt"}
+                  </span>
+                  {(duty.assigned_to === user?.id || isAdmin) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemove(duty.id, duty.assigned_to)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
                 ))}
 
                 {canAssign && (

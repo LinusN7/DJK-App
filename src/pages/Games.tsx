@@ -9,6 +9,8 @@ import { useNavigate } from "react-router-dom";
 import AddGameDialog from "@/components/games/AddGameDialog";
 import GameCard from "@/components/games/GameCard";
 import { toast } from "sonner";
+import PageHeader from "@/components/layout/PageHeader";
+
 
 const Games = () => {
   const { isAdmin } = useAuth();
@@ -39,7 +41,7 @@ const Games = () => {
   if (isLoading) {
     return (
       <div className="container mx-auto p-6 text-center text-muted-foreground">
-        Lädt Spieltage ...
+        Lädt Carpool ...
       </div>
     );
   }
@@ -59,15 +61,17 @@ const Games = () => {
   // 🟢 Normaler Zustand
   return (
     <div className="container mx-auto p-4 pb-24 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Spieltage</h1>
-        {isAdmin && (
+      <PageHeader title="Carpool" />
+
+      {isAdmin && (
+        <div className="text-center">
           <Button onClick={() => setAddGameOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            Spiel hinzufügen
+            Spieltag hinzufügen
           </Button>
-        )}
-      </div>
+        </div>
+      )}
+
 
       {/* Spieleliste */}
       {games?.length === 0 ? (

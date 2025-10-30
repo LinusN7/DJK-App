@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { X } from "lucide-react";
 import { toast } from "sonner";
+import { Car } from "lucide-react";
+
 
 interface DriversListProps {
   gameId: string;
@@ -194,7 +196,10 @@ const DriversList = ({ gameId, onUpdate }: DriversListProps) => {
             <div className="flex justify-between items-center">
               <div>
                 <p className="font-semibold">
-                  🚗 {driver.profiles?.full_name || "Unbekannt"}
+                  <div className="flex items-center gap-2">
+                    <Car className="h-5 w-5 text-djk-green transform -scale-x-100" />
+                  </div>
+                 {driver.profiles?.full_name || "Unbekannt"}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {driver.departure_location} • {driver.departure_time} •{" "}

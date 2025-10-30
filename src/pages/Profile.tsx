@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
+import PageHeader from "@/components/layout/PageHeader";
+
 
 export default function Profile() {
   const { user, signOut } = useAuth();
@@ -113,9 +115,14 @@ export default function Profile() {
   }
 
   return (
-    <div className="flex flex-col items-center p-6 space-y-6 w-full max-w-md mx-auto">
-      <h1 className="text-2xl font-bold">Profil</h1>
+  <div className="relative min-h-screen flex flex-col items-center p-4 space-y-2 w-full">
+    {/* Fixierter Header mit Logo */}
+    <div className="w-full">
+      <PageHeader title="Profil" />
+    </div>
 
+    {/* Scrollbarer Inhaltsbereich */}
+    <div className="w-full space-y-6 pb-2">
       <form onSubmit={handleSave} className="w-full space-y-3">
         <div className="space-y-2">
           <Label htmlFor="name">Name</Label>
@@ -168,5 +175,6 @@ export default function Profile() {
         </Button>
       </div>
     </div>
-  );
+  </div>
+);
 }

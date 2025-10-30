@@ -126,8 +126,16 @@ const Auth = () => {
   // UI
   return (
     <div className="max-w-md mx-auto py-10">
+      <div className="flex justify-center mb-8">
+        <img
+          src="/djk_logo.png"
+          alt="DJK Logo"
+          className="w-32 h-32 object-contain"
+        />
+      </div>
+
       <Card>
-        <CardContent className="space-y-4 pt-6">
+        <CardContent className="space-y-4 pt-4">
           <div className="flex justify-center mb-4">
             <Button
               variant={tabValue === "login" ? "default" : "outline"}
@@ -221,6 +229,7 @@ const Auth = () => {
         </CardContent>
       </Card>
     </div>
+
   );
 };
 
