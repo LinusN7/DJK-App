@@ -61,11 +61,12 @@ const AuthRoute = ({ children }: { children: React.ReactNode }) => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+    <BrowserRouter> {/* ✅ Router ist jetzt außen */}
+      <AuthProvider> {/* ✅ useAuth hat Zugriff auf useNavigate */}
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+
           <Routes>
             <Route path="/" element={<Navigate to="/auth" replace />} />
             <Route
@@ -84,13 +85,7 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route 
-              path="/games/:id"
-              element={
-              <GameDetails />
-              } 
-            />
-
+            <Route path="/games/:id" element={<GameDetails />} />
             <Route
               path="/lists"
               element={
@@ -117,10 +112,11 @@ const App = () => (
             />
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
+        </TooltipProvider>
+      </AuthProvider>
+    </BrowserRouter>
   </QueryClientProvider>
 );
+
 
 export default App;

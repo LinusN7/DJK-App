@@ -245,6 +245,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "wash_duties_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
             foreignKeyName: "wash_duties_game_id_fkey"
             columns: ["game_id"]
             isOneToOne: false

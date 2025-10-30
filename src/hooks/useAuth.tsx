@@ -1,5 +1,7 @@
 import { useEffect, useState, createContext, useContext, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+
 
 // =============================================================
 // 🔹 useAuth Hook
@@ -85,11 +87,17 @@ export const useAuth = () => {
   // -------------------------------------------------------------
   // Logout
   // -------------------------------------------------------------
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
-    setIsAdmin(false);
+  const signOut = async (onSignedOut?: () => void) => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      setProfile(null);
+      setIsAdmin(false);
+
+      if (onSignedOut) onSignedOut(); // ✅ Navigations-Callback aufrufen
+    } catch (error) {
+      console.error("Fehler beim Abmelden:", error);
+    }
   };
 
   // -------------------------------------------------------------
