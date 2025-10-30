@@ -1,6 +1,5 @@
 console.log("✅ App component mounted");
 
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,6 +14,8 @@ import Players from "./pages/Players";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import BottomNav from "./components/BottomNav";
+import InstallPrompt from "./components/InstallPrompt";
+
 
 const queryClient = new QueryClient();
 
@@ -64,6 +65,14 @@ const App = () => (
     <BrowserRouter> {/* ✅ Router ist jetzt außen */}
       <AuthProvider> {/* ✅ useAuth hat Zugriff auf useNavigate */}
         <TooltipProvider>
+          <div className="fixed top-4 right-4 z-50">
+            <img
+              src="/djk_logo.png"
+              alt="DJK Logo"
+              className="w-10 h-10 object-contain"
+            />
+          </div>
+
           <Toaster />
           <Sonner />
 
@@ -112,6 +121,7 @@ const App = () => (
             />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <InstallPrompt /> {/* 🟢 HIER eingefügt */}
         </TooltipProvider>
       </AuthProvider>
     </BrowserRouter>
