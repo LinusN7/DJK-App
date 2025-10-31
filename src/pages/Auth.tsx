@@ -138,15 +138,22 @@ const Auth = () => {
         <CardContent className="space-y-4 pt-4">
           <div className="flex justify-center mb-4">
             <Button
-              variant={tabValue === "login" ? "default" : "outline"}
               onClick={() => setTabValue("login")}
-              className="mr-2"
+              className={`mr-2 ${
+                tabValue === "login"
+                  ? "bg-white text-black hover:bg-white"
+                  : "bg-green-600 text-white hover:bg-green-500"
+              }`}
             >
               Login
             </Button>
             <Button
-              variant={tabValue === "signup" ? "default" : "outline"}
               onClick={() => setTabValue("signup")}
+              className={`${
+                tabValue === "signup"
+                  ? "bg-white text-black hover:bg-white"
+                  : "bg-green-600 text-white hover:bg-green-500"
+              }`}
             >
               Registrieren
             </Button>
@@ -172,7 +179,9 @@ const Auth = () => {
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
+              <Button type="submit" 
+              className="w-full" 
+              disabled={loading}>
                 {loading ? "Einloggen..." : "Login"}
               </Button>
             </form>
