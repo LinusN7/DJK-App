@@ -123,14 +123,15 @@ export default function Profile() {
 
     try {
       const { error } = await supabase.rpc("delete_user_and_data");
-      await fetch("https://wbnmwcmvzieqombnsgxn.functions.supabase.co/delete-user", {
+      await fetch("https://wbnmwcmvzieqombnsgxn.functions.supabase.co/delete_user_and_data", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${user?.access_token}`, // dein aktuelles User-Token
+          Authorization: `Bearer ${user.access_token}`,
         },
         body: JSON.stringify({ userId: user.id }),
       });
+
 
       if (error) {
         console.error("Fehler beim Löschen des Accounts:", error);
