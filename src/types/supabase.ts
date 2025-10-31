@@ -282,6 +282,10 @@ export type Database = {
         Args: { p_delta: number; p_user_id: string }
         Returns: undefined
       }
+      is_driver_in_game: {
+        Args: { p_driver_id: string; p_user_id: string }
+        Returns: boolean
+      }
       update_driver_seats: {
         Args: { p_delta: number; p_driver_id: string }
         Returns: undefined
