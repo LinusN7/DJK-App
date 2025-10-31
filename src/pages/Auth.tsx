@@ -142,7 +142,7 @@ const Auth = () => {
               className={`mr-2 ${
                 tabValue === "login"
                   ? "bg-white text-black hover:bg-white"
-                  : "bg-green-600 text-white hover:bg-green-500"
+                  : "bg-djk-green text-white hover:bg-djk-green/90"
               }`}
             >
               Login
@@ -152,7 +152,7 @@ const Auth = () => {
               className={`${
                 tabValue === "signup"
                   ? "bg-white text-black hover:bg-white"
-                  : "bg-green-600 text-white hover:bg-green-500"
+                  : "bg-djk-green text-white hover:bg-djk-green/90"
               }`}
             >
               Registrieren
@@ -180,7 +180,7 @@ const Auth = () => {
                 />
               </div>
               <Button type="submit" 
-              className="w-full" 
+              className="w-full bg-djk-green text-white hover:bg-djk-green/90" 
               disabled={loading}>
                 {loading ? "Einloggen..." : "Login"}
               </Button>
@@ -235,7 +235,7 @@ const Auth = () => {
 
               <Button 
                 type="submit" 
-                className="w-full" 
+                className="w-full bg-djk-green text-white hover:bg-djk-green/90" 
                 disabled={loading}>
                 {loading ? "Registriere..." : "Registrieren"}
               </Button>
