@@ -101,13 +101,6 @@ export default function Profile() {
   };
 
 
-  // 👇 Überwacht den Login-Status
-  useEffect(() => {
-    if (user === null) {
-      navigate("/auth", { replace: true });
-    }
-  }, [user, navigate]);
-
   const handleLogout = async () => {
     await signOut(); // ← löst den Logout aus
     await new Promise((resolve) => setTimeout(resolve, 300)); // kurz warten
