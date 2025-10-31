@@ -165,12 +165,10 @@ const Players = () => {
                     {player.isAdmin ? (
                       <>
                         <ShieldOff className="h-4 w-4 mr-1" />
-                        Entfernen
                       </>
                     ) : (
                       <>
                         <Shield className="h-4 w-4 mr-1" />
-                        Admin
                       </>
                     )}
                   </Button>
