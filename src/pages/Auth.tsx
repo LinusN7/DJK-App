@@ -213,15 +213,21 @@ const Auth = () => {
                   onChange={(e) => setTeamId(e.target.value)}
                 >
                   <option value="">Team auswählen</option>
-                  {teams?.map((team) => (
-                    <option key={team.id} value={team.id}>
-                      {team.name}
-                    </option>
-                  ))}
+                  {teams
+                    ?.sort((a, b) => b.id.localeCompare(a.id)) // 🔹 nach Team-ID sortieren
+                    .map((team) => (
+                      <option key={team.id} value={team.id}>
+                        {team.name}
+                      </option>
+                    ))}
                 </select>
               </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
+
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={loading}>
                 {loading ? "Registriere..." : "Registrieren"}
               </Button>
             </form>
