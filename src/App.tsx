@@ -65,14 +65,6 @@ const App = () => (
     <BrowserRouter> {/* ✅ Router ist jetzt außen */}
       <AuthProvider> {/* ✅ useAuth hat Zugriff auf useNavigate */}
         <TooltipProvider>
-          <div className="fixed top-4 right-4 z-50">
-            <img
-              src="/djk_logo.png"
-              alt="DJK Logo"
-              className="w-10 h-10 object-contain"
-            />
-          </div>
-
           <Toaster />
           <Sonner />
 
