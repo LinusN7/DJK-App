@@ -122,21 +122,24 @@ export default function Profile() {
     if (!confirm("Willst du deinen Account wirklich dauerhaft löschen?")) return;
 
     try {
-      const { error } = await supabase.rpc("delete_user_and_data");
-      await fetch("https://wbnmwcmvzieqombnsgxn.functions.supabase.co/delete_user_and_data", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${user.access_token}`,
-        },
-        body: JSON.stringify({ userId: user.id }),
-      });
+      const { data: session } = await supabase.auth.getSession();
+      const token = session?.session?.access_token;
 
+      const response = await fetch(
+        "https://wbnmwcmvzieqombnsgxn.functions.supabase.co/delete_user_and_data",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ userId: user.id }),
+        }
+      );
 
-      if (error) {
-        console.error("Fehler beim Löschen des Accounts:", error);
-        toast.error("Fehler beim Löschen des Accounts");
-        return;
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Fehler beim Löschen");
       }
 
       toast.success("Dein Account wurde gelöscht");
@@ -147,6 +150,7 @@ export default function Profile() {
       toast.error("Ein unerwarteter Fehler ist aufgetreten");
     }
   };
+
 
   if (loading) {
     return (
